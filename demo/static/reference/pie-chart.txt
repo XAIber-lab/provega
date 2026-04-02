@@ -1,0 +1,4 @@
+Fig 5.1c
+;
+Jean-Daniel Fekete, Danyel Fisher, Michael Sedlmair. Progressive Data Analysis. Eurographics,
+pp.231, 2024, (not a paper)

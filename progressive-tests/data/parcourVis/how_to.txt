@@ -1,0 +1,4 @@
+parcourVis.py generates a .csv file, synthetic data ready to use
+utf8_conveter.py converts the generated .csv in a friendly format for the next script
+csv_to_sequences.py generates sequences in json, since vega-lite does not have methods to build multi-layered visualizations / hierarchies, ready to be processed
+./scripts/parcourVis.js arranges the sequences

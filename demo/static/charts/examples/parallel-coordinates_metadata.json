@@ -1,0 +1,7 @@
+{
+  "title": "Parallel Coordinates",
+  "description": "This plot displays multivariate observations using synthetic data, progressively adding new lines over time. Each line represents an individual observation across dimensions, appearing one after the other to simulate streaming input. The progressive layout improves legibility and pattern discovery, particularly in large and complex datasets.",
+  "chart_type": "parallel coordinates",
+  "keywords": ["progressive", "parallel", "coordinates", "multivariate", "synthetic", "stream", "incremental", "dimensional"],
+  "doi": ""
+}

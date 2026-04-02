@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Density Map from FARS CSV (no naming)</title>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://d3js.org/topojson.v1.min.js"></script>
+  <script src="../build/vega-embed.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+  <style>
+    body {
+      font-family: Roboto, sans-serif;
+      margin: 20px;
+      background: #ffffff
+    }
+
+    #container {
+      position: relative;
+      margin: auto;
+      max-width: 800px;
+      height: 500px
+    }
+
+    #vis {
+      width: 100%;
+      height: 100%
+    }
+
+    #loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5em;
+      color: #555;
+      z-index: 10;
+    }
+
+    h1 {
+      text-align: center
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Density Map from FARS (2001-2009)</h1>
+  <div id="container">
+    <div id="loading">Loading…</div>
+    <div id="vis"></div>
+  </div>
+  <script>
+    (async function () {
+      const bench = (() => {
+        const label = 'density-map';
+        const start = performance.now();
+        const metrics = { marks: {}, longTasks: { count: 0, total: 0 } };
+        const log = (name, value, unit = 'ms') => {
+          const suffix = unit ? ` ${unit}` : '';
+          console.log(`[Bench:${label}] ${name}: ${value}${suffix}`);
+        };
+        const mark = (name) => {
+          const t = performance.now() - start;
+          metrics.marks[name] = t;
+          log(name, t.toFixed(1));
+          return t;
+        };
+        if (window.PerformanceObserver && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+          const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              metrics.longTasks.count += 1;
+              metrics.longTasks.total += entry.duration;
+            }
+          });
+          observer.observe({ entryTypes: ['longtask'] });
+          metrics.longTasks.observer = observer;
+        }
+        const stopLongTasks = () => {
+          if (metrics.longTasks.observer) metrics.longTasks.observer.disconnect();
+        };
+        const trackFps = (durationMs = 2000) => new Promise((resolve) => {
+          let frames = 0;
+          const t0 = performance.now();
+          const tick = () => {
+            frames += 1;
+            if (performance.now() - t0 < durationMs) {
+              requestAnimationFrame(tick);
+            } else {
+              const fps = (frames * 1000) / (performance.now() - t0);
+              log(`fps(${durationMs}ms)`, fps.toFixed(1), 'fps');
+              resolve(fps);
+            }
+          };
+          requestAnimationFrame(tick);
+        });
+        const waitForStableData = async (view, dataName, stableMs = 1200) => {
+          let lastChange = performance.now();
+          let lastSize = null;
+          const handler = () => {
+            lastChange = performance.now();
+            try {
+              lastSize = view.data(dataName).length;
+            } catch {
+              lastSize = null;
+            }
+          };
+          if (view.addDataListener) view.addDataListener(dataName, handler);
+          while (performance.now() - lastChange < stableMs) {
+            await new Promise(r => setTimeout(r, Math.max(100, stableMs / 2)));
+          }
+          if (view.removeDataListener) view.removeDataListener(dataName, handler);
+          const size = lastSize ?? (view.data ? view.data(dataName).length : null);
+          return { timeMs: performance.now() - start, size };
+        };
+        const instrumentViewUpdates = (view) => {
+          const stats = { count: 0, first: null, last: null, sumIntervals: 0 };
+          const record = () => {
+            const now = performance.now();
+            if (stats.first == null) stats.first = now;
+            if (stats.last != null) stats.sumIntervals += now - stats.last;
+            stats.last = now;
+            stats.count += 1;
+          };
+          let inRunAsync = 0;
+          if (typeof view.run === 'function') {
+            const base = view.run.bind(view);
+            view.run = (...args) => {
+              if (inRunAsync === 0) record();
+              return base(...args);
+            };
+          }
+          if (typeof view.runAsync === 'function') {
+            const base = view.runAsync.bind(view);
+            view.runAsync = (...args) => {
+              inRunAsync += 1;
+              record();
+              const p = base(...args);
+              return Promise.resolve(p).finally(() => {
+                inRunAsync -= 1;
+              });
+            };
+          }
+          const reset = () => {
+            stats.count = 0;
+            stats.first = null;
+            stats.last = null;
+            stats.sumIntervals = 0;
+          };
+          const summary = () => {
+            if (stats.count < 2) {
+              return { count: stats.count, avgIntervalMs: null, avgIntervalS: null };
+            }
+            const avgIntervalMs = stats.sumIntervals / (stats.count - 1);
+            return { count: stats.count, avgIntervalMs, avgIntervalS: avgIntervalMs / 1000 };
+          };
+          return { stats, reset, summary };
+        };
+        const measureUpdatesPerWindow = async (updateTracker, windowMs = 2000) => {
+          const c0 = updateTracker.stats.count;
+          const t0 = performance.now();
+          await new Promise(r => setTimeout(r, windowMs));
+          const dt = performance.now() - t0;
+          const updates = updateTracker.stats.count - c0;
+          return { updates, windowMs: dt, ratePerSec: updates * 1000 / dt };
+        };
+        return { mark, log, trackFps, waitForStableData, stopLongTasks, instrumentViewUpdates, measureUpdatesPerWindow, metrics };
+      })();
+
+      bench.mark('script:start');
+      // 1) Load USA boundaries
+      const topoFetchStart = performance.now();
+      const topo = await fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json').then(r => r.json());
+      bench.log('topojson:fetch+parse', (performance.now() - topoFetchStart).toFixed(1));
+      const states = topojson.feature(topo, topo.objects.states).features;
+
+      // 2) Vega-Lite spec without dataset names => uses source_0
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 800,
+        height: 500,
+        projection: { type: 'albersUsa' },
+
+        // Provega (new grammar)
+        provega: {
+          progression: {
+            chunking: {
+              type: 'data',
+              reading: {
+                method: 'sequential',
+                ascending: true,
+                chunk_size: 2000,
+                frequency: 200
+              }
+            },
+            control: {
+              mode: 'exploration',
+              pause: true,
+              stop: true,
+              backward: true,
+              min_frequency: 500,
+              min_rendering_frequency: null
+            },
+            monitoring: {
+              aliveness: true,
+              etc: 'eta_ms',
+              progressbar: true,
+              change: { mark: { active: false, blink: false }, noise_reduction: false },
+              quality: {
+                absolute_progress: { on_data_input: true, on_result_output: true, on_visual_output: true },
+                relative_progress: { on_data_input: true, on_result_output: true, on_visual_output: true },
+                relative_stability: { on_data_input: false, on_result_output: false, on_visual_output: false },
+                absolute_certainty: { on_result_output: false }
+              }
+            }
+          },
+          visualization: { visual_stability: false, similarity_anchors: false }
+        },
+
+        // 3) Data CSV → default source_0
+        data: {
+          url: 'data/fars_2001-2009/fars_all_accidents.csv', //change in fars_sampled_5pct.csv (and 10,20,30,40) to have lighter csv files
+          format: { type: 'csv' }
+        },
+
+        // 4) Trasformazioni lat/lon
+        transform: [
+          { calculate: 'datum.latitude', as: 'lat' },
+          { calculate: 'datum.longitude', as: 'lon' }
+        ],
+
+        // 5) Layers: confini + punti (questi ultimi ereditano source_0)
+        layer: [
+          {
+            data: { values: states },
+            mark: { type: 'geoshape', fill: '#f0f0f0', stroke: '#fff', strokeWidth: 0.5 }
+          },
+          {
+            mark: { type: 'circle', size: 2, color: 'green', opacity: 0.6 },
+            encoding: {
+              longitude: { field: 'lon', type: 'quantitative' },
+              latitude: { field: 'lat', type: 'quantitative' }
+            }
+          }
+        ],
+
+        config: {
+          background: '#ffffff',
+          view: { stroke: 'transparent' },
+          axis: { labelFont: 'Arial', labelFontSize: 12 }
+        }
+      };
+
+      // 6) Embed and start progression
+      const result = await vegaEmbed('#vis', spec, { tooltip: false, renderer: "canvas" });
+      const view = result.view;
+      const viewUpdates = bench.instrumentViewUpdates(view);
+      bench.mark('embed:resolved');
+      await view.runAsync();
+      bench.mark('view:runAsync');
+      viewUpdates.reset();
+      const updates2s = bench.measureUpdatesPerWindow(viewUpdates, 2000);
+
+      // Progressive loader should:
+      // view.change('source_0', vega.changeset().insert(chunk)).runAsync();
+
+      // Hide overlay
+      document.getElementById('loading').style.display = 'none';
+
+      const stable = await bench.waitForStableData(view, 'source_0', 1500);
+      bench.log('data:rows', stable.size ?? 'n/a', '');
+      bench.log('completion', stable.timeMs.toFixed(1));
+      const updatesSummary = viewUpdates.summary();
+      const updates2sResult = await updates2s;
+      bench.log('visual:updates_per_2s', updates2sResult.updates, '');
+      bench.log('visual:update_rate', updates2sResult.ratePerSec.toFixed(2), 'updates/s');
+      if (updatesSummary.avgIntervalS != null) {
+        bench.log('visual:update_interval_avg', updatesSummary.avgIntervalS.toFixed(3), 's');
+      } else {
+        bench.log('visual:update_interval_avg', 'n/a', '');
+      }
+      await bench.trackFps(2000);
+      bench.stopLongTasks();
+      if (bench.metrics.longTasks.count > 0) {
+        bench.log('longtasks:count', bench.metrics.longTasks.count, '');
+        bench.log('longtasks:total', bench.metrics.longTasks.total.toFixed(1));
+      } else {
+        bench.log('longtasks:count', 0, '');
+      }
+    })();
+  </script>
+</body>
+
+</html>

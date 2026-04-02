@@ -1,0 +1,109 @@
+{
+  "name": "vega-embed",
+  "version": "6.29.0",
+  "description": "Publish Vega visualizations as embedded web components.",
+  "keywords": [
+    "vega",
+    "data",
+    "visualization",
+    "component",
+    "embed"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/vega/vega-embed.git"
+  },
+  "author": "UW Interactive Data Lab (http://idl.cs.washington.edu)",
+  "contributors": [
+    "Dominik Moritz (https://www.domoritz.de)"
+  ],
+  "bugs": {
+    "url": "https://github.com/vega/vega-embed/issues"
+  },
+  "homepage": "https://github.com/vega/vega-embed#readme",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "exports": {
+    "types": "./build/index.d.ts",
+    "default": "./build/index.js"
+  },
+  "unpkg": "build/vega-embed.min.js",
+  "jsdelivr": "build/vega-embed.min.js",
+  "files": [
+    "src",
+    "build"
+  ],
+  "devDependencies": {
+    "@release-it/conventional-changelog": "^10.0.0",
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/semver": "^7.5.8",
+    "@typescript-eslint/parser": "^8.26.1",
+    "@vitest/coverage-istanbul": "^3.0.9",
+    "browser-sync": "^3.0.3",
+    "concurrently": "^9.1.2",
+    "del-cli": "^6.0.0",
+    "eslint": "^9.22.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "eslint-plugin-vitest": "^0.5.4",
+    "jsdom": "^26.0.0",
+    "postinstall-postinstall": "^2.1.0",
+    "prettier": "^3.5.3",
+    "release-it": "^18.1.2",
+    "rollup": "4.36.0",
+    "rollup-plugin-bundle-size": "^1.0.3",
+    "sass": "^1.86.0",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.1",
+    "vega": "^5.33.0",
+    "vega-lite": "^5.23.0",
+    "vitest": "^3.0.9",
+    "vitest-canvas-mock": "^0.3.3"
+  },
+  "peerDependencies": {
+    "vega": "^5.21.0",
+    "vega-lite": "*"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-tsne": "^0.2.0",
+    "buffer": "^6.0.3",
+    "express": "^4.21.2",
+    "fast-json-patch": "^3.1.1",
+    "json-stringify-pretty-compact": "^4.0.0",
+    "semver": "^7.7.1",
+    "socket.io": "^4.8.1",
+    "tslib": "^2.8.1",
+    "vega-interpreter": "^1.2.0",
+    "vega-schema-url-parser": "^3.0.2",
+    "vega-themes": "3.0.0-alpha.3",
+    "vega-tooltip": "1.0.0-alpha.5"
+  },
+  "scripts": {
+    "prebuild": "npm run clean && npm run build:style",
+    "build": "rollup -c",
+    "build:style": "bash build-style.sh",
+    "clean": "del-cli build src/style.ts",
+    "prepublishOnly": "npm run clean && npm run build",
+    "preversion": "npm run lint && npm run test",
+    "serve": "browser-sync start --directory -s -f build *.html",
+    "start": "npm run build && concurrently --kill-others -n Server,Rollup 'npm run serve' 'rollup -c -w'",
+    "pretest": "npm run build:style",
+    "test": "vitest run",
+    "format": "eslint --fix && prettier . --write",
+    "lint": "eslint && prettier . --check",
+    "release": "release-it"
+  },
+  "main": "eslint.config.js",
+  "directories": {
+    "test": "test"
+  },
+  "alias": {
+    "buffer": "buffer",
+    "buffer/": "buffer"
+  }
+}

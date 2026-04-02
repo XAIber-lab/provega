@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Figure 3c replica</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="../build/vega-embed.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+  <div id="vis"></div>
+  <script>
+    async function run() {
+      const N = 15, E = 25;
+      const matchedIndex = Math.floor(Math.random() * N);
+      const labels = [
+        "SEA‑LAND SERVICE, INC., Appellant",
+        "COLUMBIA STEAMSHIP COMPANY",
+        "Robert LEONARD et al., Plaintiffs‑",
+        "THE UNITED STATES, APPELLANTS",
+        "Thomas Wayne JOYCE, Appellant",
+        "John FARLEY, Appellant, v. UNITED",
+        "TEXAS, Petitioner v. Gregory Lee",
+        "GRACE LINE, INC., Petitioner, v. F",
+        "UNITED STATES of America",
+        "Diane MONROE, Petitioner‑Appellant"
+      ];
+
+      // 1) genera posizioni casuali
+      const nodes = [];
+      for (let i = 0; i < N; i++) {
+        const cat = Math.random() < 0.4 ? "Supreme Court" : "Lower Federal Court";
+        nodes.push({
+          id: i,
+          x: Math.random() * 600 + 50,
+          y: Math.random() * 400 + 50,
+          doi: Math.random() * 80 + 20,
+          focus: i === 7,
+          matched: i === matchedIndex,
+          category: cat,
+          label: labels[Math.floor(Math.random() * labels.length)]
+        });
+      }
+
+      // 2) semplice repellente per evitare sovrapposizioni
+      const MIN_DIST = 40;
+      for (let iter = 0; iter < 200; iter++) {
+        let moved = false;
+        for (let i = 0; i < N; i++) {
+          for (let j = i + 1; j < N; j++) {
+            const a = nodes[i], b = nodes[j];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const d = Math.hypot(dx, dy);
+            if (d < MIN_DIST) {
+              const shift = (MIN_DIST - d) / 2;
+              const ux = dx / (d || 1), uy = dy / (d || 1);
+              a.x -= ux * shift;
+              a.y -= uy * shift;
+              b.x += ux * shift;
+              b.y += uy * shift;
+              moved = true;
+            }
+          }
+        }
+        if (!moved) break;
+      }
+
+      // 3) genera i link
+      const links = [];
+      for (let i = 0; i < E; i++) {
+        const a = Math.floor(Math.random() * N), b = Math.floor(Math.random() * N);
+        if (a !== b) {
+          links.push({
+            type: 'link',
+            x1: nodes[a].x, y1: nodes[a].y,
+            x2: nodes[b].x, y2: nodes[b].y
+          });
+        }
+      }
+
+      const data = nodes.map(n => ({ ...n, type: 'node' })).concat(links);
+
+      // 4) spec Vega‑Lite (progressive inalterato)
+      const spec = {
+        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+        width: 800,
+        height: 500,
+        padding: { top: 10, right: 200 },
+        title: {
+          text: "Context Graph (replica Fig. 3c) – Distanziato",
+          orient: "top",
+          fontSize: 16,
+          fontWeight: "normal",
+          anchor: "start",
+          dx: 10,
+          dy: -10,
+          color: "#555"
+        },
+
+        // -- Provega extension (NEW grammar) --
+        provega: {
+          progression: {
+            // da data.chunking
+            chunking: {
+              type: "data",
+              reading: {
+                method: "sequential",
+                ascending: true,
+                chunk_size: 5,
+                frequency: 1000
+              }
+            },
+
+            // da progressive.execution + rendering.min_frequency
+            control: {
+              mode: "exploration",
+              pause: true,
+              stop: true,
+              backward: true,
+              min_frequency: 1000,
+              min_rendering_frequency: null
+            },
+
+            // da process + change + quality + visual_representation.noise_reduction
+            monitoring: {
+              aliveness: true,
+              etc: "eta_ms",
+              progressbar: true, // default true
+              change: {
+                // zona di cambio (area)
+                area: {
+                  active: true,
+                  blink: true,
+                  style: { color: "#ffa500", opacity: 0.3 }
+                },
+                // mark di cambio
+                mark: {
+                  active: true,
+                  blink: false,
+                  style: { color: "#d62728" }
+                },
+                noise_reduction: false
+              },
+              quality: {
+                absolute_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_stability: {
+                  on_data_input: false,
+                  on_result_output: false,
+                  on_visual_output: false
+                },
+                absolute_certainty: {
+                  on_result_output: false
+                }
+              },
+              // uncertainty mostrata nel pannello process
+              uncertainty: {
+                active: true,
+                variable: "uncertainty",
+                domain: [0, 1],
+                percentage: false,
+                show_label: false,
+                show_max: false
+              }
+            }
+          },
+
+          // da progressive.visual_representation
+          visualization: {
+            visual_stability: true,
+            similarity_anchors: false
+          }
+        },
+
+        // ── Data block solo raw values ──
+        data: {
+          values: data,
+          format: { type: "json" }
+        },
+
+        layer: [
+          {
+            transform: [{ filter: "datum.type==='link'" }],
+            mark: { type: "rule", stroke: "#ccc", strokeWidth: 1 },
+            encoding: {
+              x: { field: "x1", type: "quantitative", axis: null },
+              y: { field: "y1", type: "quantitative", axis: null },
+              x2: { field: "x2" },
+              y2: { field: "y2" }
+            }
+          },
+          {
+            transform: [{ filter: "datum.type==='node'" }],
+            mark: { type: "point", filled: true },
+            encoding: {
+              x: { field: "x", type: "quantitative", axis: null },
+              y: { field: "y", type: "quantitative", axis: null },
+              size: {
+                field: "doi",
+                type: "quantitative",
+                scale: { range: [80, 400] },
+                legend: null
+              },
+              color: {
+                field: "category",
+                type: "nominal",
+                scale: {
+                  domain: ["Supreme Court", "Lower Federal Court"],
+                  range: ["#747F6F", "#B9C192"]
+                },
+                legend: {
+                  title: "Court",
+                  orient: "bottom-left",
+                  symbolType: "square",
+                  symbolSize: 200
+                }
+              },
+              stroke: {
+                condition: { test: "datum.matched", value: "steelblue" },
+                value: null
+              },
+              strokeWidth: {
+                condition: { test: "datum.matched", value: 3 },
+                value: 0
+              }
+            }
+          },
+          {
+            transform: [{ filter: "datum.type==='node'" }],
+            mark: {
+              type: "text",
+              align: "left",
+              baseline: "middle",
+              dx: 6,
+              dy: -6,
+              fontSize: 10,
+              color: "#555"
+            },
+            encoding: {
+              x: { field: "x", type: "quantitative" },
+              y: { field: "y", type: "quantitative" },
+              text: { field: "label", type: "nominal" }
+            }
+          },
+          {
+            transform: [{ filter: "datum.type==='node'" }, { filter: "datum.focus" }],
+            mark: {
+              type: "text",
+              align: "left",
+              baseline: "middle",
+              dx: 8,
+              dy: -18,
+              fontSize: 12,
+              fontWeight: "bold",
+              color: "#555"
+            },
+            encoding: {
+              x: { field: "x", type: "quantitative" },
+              y: { field: "y", type: "quantitative" },
+              text: { value: "Focus" }
+            }
+          }
+        ],
+
+        config: {
+          background: "#f5f5f5"
+        }
+      };
+
+
+      await vegaEmbed("#vis", spec, { tooltip: true });
+    }
+
+    run();
+  </script>
+</body>
+
+</html>

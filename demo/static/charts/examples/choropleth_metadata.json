@@ -1,0 +1,7 @@
+{
+  "title": "Choropleth",
+  "description": "This choropleth map reveals region-based data in stages, using random values to demonstrate progressive rendering. Each region lights up over time, mimicking a data stream or asynchronous loading. The user observes geographic patterns emerge gradually, reinforcing spatial perception and engagement. Despite the synthetic values, the animation models real-world map-based insights.",
+  "chart_type": "choropleth",
+  "keywords": ["progressive", "choropleth", "geo", "sequential", "map", "streaming", "synthetic", "animated"],
+  "doi": ""
+}

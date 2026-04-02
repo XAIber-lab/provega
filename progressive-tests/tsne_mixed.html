@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>t-SNE + Provega (chunking.type = "mixed")</title>
+
+    <!-- tsnejs (external library) -->
+    <script src="https://cdn.jsdelivr.net/gh/karpathy/tsnejs@master/tsne.js"></script>
+
+    <!-- Vega / Vega-Lite -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+
+    <!-- Custom vega-embed build (build/vega-embed.min.js) -->
+    <script src="../build/vega-embed.min.js"></script>
+
+    <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+    <h1>t-SNE + Provega (mixed chunking)</h1>
+    <div id="vis"></div>
+
+    <script>
+        (async () => {
+            // Load data (assumes the local file exists)
+            const resp = await fetch('data/fashion_mnist/fashion_mnist_1000.json');
+            if (!resp.ok) throw new Error(`Fetch: ${resp.status}`);
+            const raw = await resp.json();;;
+
+            // Prepare array of objects with 'features'
+            const dataArr = raw.map(d => ({
+                id: d.id,
+                label: `Class ${d.label}`,
+                features: d.pixels.map(v => v / 255),
+                // initial random x,y (will be overwritten by TSNE)
+                x: (Math.random() * 2 - 1) * 5,
+                y: (Math.random() * 2 - 1) * 5
+            }));
+
+            // SPEC: mixed -> progressive Vega chunking + TSNE positioning
+            const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 1000,
+                height: 600,
+                data: {
+                    name: 'source_0',
+                    values: dataArr,
+                    format: { type: 'json' }
+                },
+
+                // IMPORTANT: mixed -> lascia procedere il ramo "data" progressive,
+                // ensures TSNE is applied to incoming chunks
+                provega: {
+                    progression: {
+                        chunking: {
+                            type: 'mixed',            // <- mixed (progressive + tsne)
+                            reading: {
+                                method: 'sequential',
+                                ascending: true,
+                                // use a small chunk_size to test more steps
+                                chunk_size: 10,
+                                // frequenza in ms tra l'arrivo di chunk successivi
+                                frequency: 250
+                            }
+                        },
+                        control: {
+                            mode: "exploration",
+                            pause: true,
+                            stop: true,
+                            backward: true,
+                            min_frequency: 300,
+                            min_rendering_frequency: null
+                        },
+                        monitoring: {
+                            aliveness: true,
+                            etc: 'eta_ms',
+                            progressbar: true,
+                            change: {
+                                mark: {
+                                    active: false,
+                                    blink: false,
+                                    style: { color: '#f00' }
+                                }
+                            },
+                            quality: {
+                                absolute_progress: {
+                                    on_data_input: 'abs_in',
+                                    on_result_output: 'abs_out',
+                                    on_visual_output: 'abs_vis'
+                                },
+                                relative_progress: {
+                                    on_data_input: 'rel_in',
+                                    on_result_output: 'rel_out',
+                                    on_visual_output: 'rel_vis'
+                                },
+                                relative_stability: {
+                                    on_data_input: 'stab_in',
+                                    on_result_output: 'stab_out',
+                                    on_visual_output: 'stab_vis'
+                                },
+                                absolute_certainty: {
+                                    on_result_output: 'cert_out'
+                                }
+                            }
+                        }
+                    },
+                    visualization: {
+                        visual_stability: true
+                    }
+                },
+
+                mark: { type: 'circle', clip: true, opacity: 0.9 },
+                encoding: {
+                    x: { field: 'x', type: 'quantitative', scale: { domain: [-25, 25] } },
+                    y: { field: 'y', type: 'quantitative', scale: { domain: [-25, 25] } },
+                    color: { field: 'label', type: 'nominal', scale: { scheme: 'category10' } },
+                    tooltip: [
+                        { field: 'id', title: 'ID' },
+                        { field: 'label', title: 'Class' }
+                    ],
+                    size: { value: 40 }
+                }
+            };
+
+            // embedOptions: force provega enabled as a safety net
+            const embedOptions = { actions: false, renderer: 'canvas', provegaEnabled: true };
+
+            // Embed: embed.ts must:
+            // - handle "data" chunking (insert chunks into the view)
+            // - detect chunking.type === 'mixed' and call setupMixedTSNE/processChunkMixed
+            const res = await vegaEmbed('#vis', spec, embedOptions);
+            console.log('Embed ready:', res);
+            // Debug helpers (use in console if needed)
+            window.__PROVEGA_RES = res;
+            console.log("Provega mixed test: aperta console, osserva i log '[Provega-Mixed]' e '[Provega]' stampati da embed.ts");
+        })();
+    </script>
+</body>
+
+</html>
+
+

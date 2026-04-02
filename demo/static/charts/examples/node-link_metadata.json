@@ -1,0 +1,7 @@
+{
+  "title": "Node-Link",
+  "description": "This network visualization displays a synthetic graph where nodes and edges appear progressively. The incremental layout emphasizes connectivity as it grows, revealing clusters, bridges, and central nodes over time. Ideal for simulating large-scale systems or interactions while demonstrating the effect of progressive data intake.",
+  "chart_type": "node link",
+  "keywords": ["progressive", "network", "graph", "synthetic", "node-link", "streaming", "animation", "structure"],
+  "doi": ""
+}

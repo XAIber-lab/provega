@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PROVEGA: Progressive Vega-Lite Extension</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      line-height: 1.6;
+      margin: 40px;
+      max-width: 900px;
+    }
+    h1, h2, h3, h4 {
+      color: #2c3e50;
+    }
+    code {
+      background: #f4f4f4;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px 12px;
+    }
+    th {
+      background: #f9f9f9;
+    }
+    blockquote {
+      border-left: 4px solid #ccc;
+      margin: 1em 0;
+      padding-left: 1em;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+<h1>PROVEGA: Progressive Vega-Lite Extension</h1>
+
+<p><code>PROVEGA</code> is an extension of Vega-Lite aimed at supporting <strong>progressive visualization</strong>. It introduces new properties under the <code>provega</code> namespace.</p>
+
+<pre><code class="json">{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "url": "data/large_dataset.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": { "field": "timestamp", "type": "temporal" },
+    "y": { "field": "value", "type": "quantitative" }
+  },
+  <b>"provega"</b>: {
+    "progression": {
+      "chunking": {
+      },
+      "control": {
+      },
+      "monitoring": {
+      }
+    }
+  }
+}</code></pre>
+
+<h2>🧭 Table of Contents</h2>
+<ul>
+  <li><a href="#1-progression">1. Progression</a>
+    <ul>
+      <li><a href="#11-chunking">1.1 Chunking</a></li>
+      <li><a href="#12-control">1.2 Control</a></li>
+      <li><a href="#13-monitoring">1.3 Monitoring</a></li>
+      <li><a href="#14-quality">1.4 Quality</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="1-progression">1. Progression</h2>
+
+<h3 id="11-chunking">1.1 <code>chunking</code></h3>
+<p>Defines how the data is chunked and read progressively. The <code>type</code> field is <strong>mandatory</strong>.</p>
+
+<p>The <code>reading</code> field is used when the dataset is passed as a single CSV file (or JSON array) embedded in the spec, or as URL endpoint, and must be sampled and chunked progressively during rendering.</p>
+
+<p>Alternatively, if the Vega-Lite <code>data.values</code> field already contains an <strong>array of arrays</strong> (each sub-array representing a pre-defined chunk), then only the <code>reading.frequency</code> value will be considered to control playback speed across these chunks.</p>
+
+<table>
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>type</code></td><td>"data" | "process" | "mixed"</td><td>– (required)</td><td>Specifies the chunking scope.</td></tr>
+<tr><td><code>reading.method</code></td><td>"sequential" | "random"</td><td>"sequential"</td><td>Sampling method for chunking when using a single dataset source.</td></tr>
+<tr><td><code>reading.ascending</code></td><td>boolean</td><td>false</td><td>If <code>true</code>, reads data in ascending order.</td></tr>
+<tr><td><code>reading.chunk_size</code></td><td>number</td><td>10</td><td>Number of items in each chunk.</td></tr>
+<tr><td><code>reading.frequency</code></td><td>number (ms)</td><td>1000</td><td>Delay between chunk loads. Always applies if chunks are pre-defined.</td></tr>
+<tr><td><code>reading.seed</code></td><td>number</td><td>0</td><td>Random seed for sampling (used when method is "random").</td></tr>
+</tbody>
+</table>
+
+<h4>📄 Simple Example Making Data Chunking from a Dataset</h4>
+<pre><code class="json">{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "values": [
+      { "x": 1, "y": 5 }, 
+      { "x": 2, "y": 10 },
+      { "x": 3, "y": 15 }, 
+      { "x": 4, "y": 20 },
+      { "x": 5, "y": 25 },
+      { "x": 6, "y": 30 },
+      { "x": 7, "y": 35 },
+      { "x": 8, "y": 40 },
+      { "x": 9, "y": 45 },
+      { "x": 10, "y": 50 }
+    ]
+  },
+  "mark": "line",
+  "encoding": {
+    "x": { "field": "x", "type": "quantitative" },
+    "y": { "field": "y", "type": "quantitative" }
+  },
+  "provega": {
+    "progression": {
+      "chunking": {
+        "type": "data",
+        "reading": {
+          "frequency": 1000,
+          "chunk_size": 2,
+          "method": "sequential",
+          "ascending": true
+        }
+      }
+    }
+  }
+}</code></pre>
+
+
+<h4>📄 Simple Example Using Pre-Chunks</h4>
+<pre><code class="json">{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "values": [
+      [ { "x": 1, "y": 5 }, { "x": 2, "y": 10 } ],
+      [ { "x": 3, "y": 15 }, { "x": 4, "y": 20 } ],
+      [ { "x": 5, "y": 25 } ]
+    ]
+  },
+  "mark": "line",
+  "encoding": {
+    "x": { "field": "x", "type": "quantitative" },
+    "y": { "field": "y", "type": "quantitative" }
+  },
+  "provega": {
+    "progression": {
+      "chunking": {
+        "type": "data",
+        "reading": {
+          "frequency": 1000
+        }
+      }
+    }
+  }
+}</code></pre>
+
+
+
+
+
+<h3 id="12-control">1.2 <code>control</code></h3>
+<p>Defines the control modes and interactions with the progressive process.</p>
+
+<table>
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>mode</code></td><td>"monitoring" | "exploration"</td><td>"monitoring"</td><td>Shortcut for enabling/disabling control features.</td></tr>
+<tr><td><code>pause</code></td><td>boolean</td><td>false</td><td>Enables pause capability.</td></tr>
+<tr><td><code>stop</code></td><td>boolean</td><td>false</td><td>Enables stop capability.</td></tr>
+<tr><td><code>backward</code></td><td>boolean</td><td>false</td><td>Enables backward traversal.</td></tr>
+<tr><td><code>min_frequency</code></td><td>number (ms)</td><td>–</td><td>Minimum delay between results.</td></tr>
+<tr><td><code>min_rendering_frequency</code></td><td>number | null</td><td>null</td><td>Controls rendering update frequency.</td></tr>
+</tbody>
+</table>
+
+<h3 id="13-monitoring">1.3 <code>monitoring</code></h3>
+<p>Adds monitoring tools to track progress and quality of progressive visualization.</p>
+
+<table>
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>aliveness</code></td><td>boolean</td><td>true</td><td>Shows spinner to indicate process is alive.</td></tr>
+<tr><td><code>etc</code></td><td>string | boolean</td><td>null</td><td>Estimated time to completion; variable name or <code>true</code> for default.</td></tr>
+<tr><td><code>progressbar</code></td><td>boolean</td><td>true</td><td>Shows a progress bar.</td></tr>
+<tr><td><code>change</code></td><td>Object</td><td>undefined</td><td>Tracks and visualizes changes in the visualization.</td></tr>
+<tr><td><code>change.area</code></td><td>boolean (or Object)</td><td>false</td><td>Highlights the area of change in the visualization.</td></tr>
+<tr><td><code>change.mark</code></td><td>boolean (or Object)</td><td>false</td><td>Highlights the marks that changed in the visualization.</td></tr>
+<tr><td><code>change.noise_reduction</code></td><td>boolean</td><td>false</td><td> Enables noise filtering for change detection</td></tr>
+</tbody>
+</table>
+
+<h4 id="13-monitoring">1.3.1 <code>change.area</code></h4>
+<p>It is possible to customize the appeareance of the change area. Instead of passing a sigle bool value to enable the change area, pass an object.</p>
+
+<table>
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>change.area.active</code></td><td>boolean</td><td>false</td><td>Highlights the area of change in the visualization.</td></tr>
+<tr><td><code>change.area.blink</code></td><td>boolean</td><td>false</td><td>Enable the blinking.</td></tr>
+<tr><td><code>change.area.style.color</code></td><td>string</td><td>red</td><td>Color of the area.</td></tr>
+<tr><td><code>change.area.style.opacity</code></td><td>string</td><td>red</td><td>Opacity of the area.</td></tr>
+</tbody>
+</table>
+
+
+
+
+<h4 id="13-monitoring">1.3.2 <code>change.mark</code></h4>
+<p>It is possible to customize the appeareance of the changed marks. Instead of passing a sigle bool value to enable the highlight, pass an object.</p>
+
+<table>
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>change.mark.active</code></td><td>boolean</td><td>false</td><td>Highlights the changed marks in the visualization.</td></tr>
+<tr><td><code>change.mark.blink</code></td><td>boolean</td><td>false</td><td>Enable the blinking.</td></tr>
+<tr><td><code>change.mark.style.color</code></td><td>string</td><td>red</td><td>Color of the mark.</td></tr>
+<tr><td><code>change.mark.style.opacity</code></td><td>string</td><td>red</td><td>Opacity of the mark.</td></tr>
+</tbody>
+</table>
+
+
+<h4 id="14-quality">1.4 <code>quality</code></h4>
+<p>Tracks various indicators of progressive quality. Each field is optional and accepts a variable name (<code>string</code>) or <code>true</code> for defaults.</p>
+
+<table>
+<thead><tr><th>Field</th><th>Subfields</th><th>Metadata Default</th></tr></thead>
+<tbody>
+<tr><td><code>absolute_progress</code></td><td>on_data_input, on_result_output, on_visual_output</td><td>metadata.quality.absolute_progress.*</td></tr>
+<tr><td><code>relative_progress</code></td><td>on_data_input, on_result_output, on_visual_output</td><td>metadata.quality.relative_progress.*</td></tr>
+<tr><td><code>relative_stability</code></td><td>on_data_input, on_result_output, on_visual_output</td><td>metadata.quality.relative_stability.*</td></tr>
+<tr><td><code>absolute_certainty</code></td><td>on_result_output</td><td>metadata.quality.absolute_certainty.on_result_output</td></tr>
+</tbody>
+</table>
+
+<pre><code class="json">
+  "quality": {
+          "absolute_progress": {
+            "on_data_input": true,
+            "on_result_output": true,
+            "on_visual_output": true
+          },
+          "relative_progress": {
+            "on_data_input": true,
+            "on_result_output": true,
+            "on_visual_output": true
+          },
+          "relative_stability": {
+            "on_data_input": true,
+            "on_result_output": true,
+            "on_visual_output": true
+          },
+          "absolute_certainty": {
+            "on_result_output": true
+          }
+    }
+ 
+</code></pre>
+
+
+
+
+<h2 id="example">📄 Example: Vega-Lite Spec with PROVEGA</h2>
+
+<p>This example demonstrates how to use <code>provega</code> properties in a Vega-Lite specification to enable progressive chunking and monitoring:</p>
+
+<pre><code class="json">{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "url": "data/large_dataset.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": { "field": "timestamp", "type": "temporal" },
+    "y": { "field": "value", "type": "quantitative" }
+  },
+  "provega": {
+    "progression": {
+      "chunking": {
+        "type": "data",
+        "reading": {
+          "method": "sequential",
+          "chunk_size": 20,
+          "frequency": 500
+        }
+      },
+      "control": {
+        "mode": "exploration",
+        "pause": true,
+        "stop": true,
+        "backward": true,
+        "min_frequency": 300
+      },
+      "monitoring": {
+        "aliveness": true,
+        "progressbar": true,
+        "change": {
+          "area": true,
+          "noise_reduction": true
+        },
+        "quality": {
+          "absolute_progress": {
+            "on_data_input": true
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+</body>
+</html>

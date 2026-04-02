@@ -1,0 +1,7 @@
+{
+  "title": "Scatter plot",
+  "description": "A progressive scatterplot displays data points incrementally, allowing users to explore patterns, trends, and outliers before the full dataset has loaded. It is ideal for large or streaming datasets, providing immediate visual feedback and gradually refining the view as more data arrives. This approach reduces wait times and improves interactivity, especially in real-time or computationally intensive contexts. Visual stability is maintained to help users retain context. Additional cues like opacity or blur may indicate data certainty. It's especially useful in exploratory analysis, monitoring, and dynamic dashboards",
+  "doi": "https://doi.org/10.1109/TVCG.2016.2598470",
+  "keywords": ["scatterplot, point chart, x-y plot, bivariate, two-dimensional, coordinates, data points, distribution, correlation, trend, clusters, outliers, regression, progressive rendering, animation, interactive, real-time, zoom, pan, visual density, visual encoding"],
+  "chart_type": "Scatterplot"
+}

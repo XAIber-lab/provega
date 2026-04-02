@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Progressive Vega visualization</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='progress.css') }}">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet"/>
+        <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+        <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+        <script src="{{ url_for('static', filename='vega-embed.min.js') }}"></script>
+        
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://d3js.org/topojson.v1.min.js"></script>
+
+        <!-- Ace Editor -->
+        <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.31.1/src-min-noconflict/ace.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.31.1/src-min-noconflict/mode-json.min.js"></script>
+    </head>
+
+
+    <body>
+        <!-- Top Navbar -->
+        <div class="top-navbar">
+        <div class="intro" style="display: flex; flex-direction: row; gap: 13px; align-items: center;">
+            <div class="navbar-logo">
+                <img src="{{ url_for('static', filename='icon.png') }}" alt="Logo"> 
+            </div>
+            <div class="navbar-title">Progressive Vega</div>
+            <div class="link-grammar"><a href="/provega-documentation"  target="_blank">Documentation</a></div>
+        </div>
+            <div class="navbar-links">
+                <div class="navbar-land">
+                    <a href="/browser" class="{% if active_page == 'browser' %}active{% endif %}">Browser</a>
+                    <a href="/editor" class="{% if active_page == 'editor' %}active{% endif %}">Editor</a>
+                    <a href="/" class="{% if active_page == 'index' %}active{% endif %}">Inspector</a>
+                </div>
+            </div>
+
+        </div>
+
+        {% block content %}{% endblock %}
+
+    </body>
+</html>

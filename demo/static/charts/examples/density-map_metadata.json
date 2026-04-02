@@ -1,0 +1,7 @@
+{
+  "title": "Density Map",
+  "description": "This density map uses random data to simulate activity intensities over space, progressively rendering high-density regions. The heatmap grows in resolution as the chunks arrive, guiding attention to evolving hotspots. The visualization mimics real-time tracking or event-based data streams, even though the data itself is artificial.",
+  "chart_type": "density map",
+  "keywords": ["progressive", "density", "heatmap", "spatial", "synthetic", "chunked", "animation", "hotspot"],
+  "doi": ""
+}

@@ -1,0 +1,3 @@
+progressivis==0.2.3
+python-socketio[aiohttp]==5.11.4
+pandas>=2.0

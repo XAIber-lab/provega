@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+
+        <!-- Modal structure script loading -->
+        <div id="editorModal" class="modal">
+            <div class="modal-content">
+                <h3>Load your own Javascript code for the data</h3>
+                <div id="editorModalEditor"></div>
+
+                <div class="modal-footer">
+                    <button id="saveScriptBtn" class="modal-button" style="background-color: #37c90f;">Save</button>
+                    <button id="closeEditorBtn" class="modal-button" style="background-color: #eb901a;">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- spec loader -->
+        <div id="spec-container" data-folder='{{ folder }}', data-name="{{ name }}" style="display:none;"></div>
+
+        <!-- Left Panel -->
+        <div class="left-panel" id="left-panel" style="width: 40vw;">
+            <!-- hamburger header and collapsible menu -->
+            <div class="left-panel-header">
+                <div class="hamburger-icon" id="hamburger-icon">☰</div>
+                <h3 class="panel-title" id="grammar-parameters-title">Writing area</h3>
+            </div>
+
+            <div class="collapsible-menu-content" id="collapsible-menu-content" style="display: flex;">
+                <div class="buttons" style="display: flex; flex-direction: row; gap: 10%;">
+                    <button id="run-visualization" style="margin-bottom: 0px; width: 40%;">Run Visualization</button>
+
+                    <input type="file" id="jsonUpload" accept=".json,.csv" style="display: none;">
+
+                    <div id="uploadContainer" style="position: relative; display: inline-flex; border-radius: 6px; overflow: visible; background: #eb901a;">
+                    <button id="upload-json" class="upload-trigger-button" disabled>
+                        <i class="bx bx-cloud-upload" style="font-size: 20px;"></i> Upload JSON / CSV
+                    </button>
+                    <button id="dropdown-toggle" disabled>
+                        ▼
+                    </button>
+
+                    <ul id="uploadedFilesDropdown">
+                        <!-- Loaded files -->
+                    </ul>
+                    </div>
+
+                    
+                    <div id="uploadOverlay" style="display:none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(255,255,255,0.5); z-index: 9998;"></div>
+                    <div id="uploadTooltip" style="display:none; position: absolute; background-color: #fff; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; font-size: 14px; z-index: 9999; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+                        <span id="uploadTooltipContent"><i class="fa fa-spinner fa-spin"></i> Uploading...</span>
+                    </div>
+
+
+
+                    <button id="openEditorBtn" class="upload-trigger-button" disabled>Load JS script</button>
+                </div>
+
+                  <div class="text-area-group" style="max-height: 100%;">
+                    <!-- Advanced view spec textarea (with search) -->
+                     <div id="advanced-editor-container">
+                        <label for="advanced-spec-editor">Write your spec here:</label>
+
+                        <div class="search-bar sticky-search" style="display: flex; align-items: center; gap: 5px; margin-top: 10px;">
+                            <input type="text" id="searchInput" placeholder="Search...">
+                            <button id="searchButton" onclick="performSearch()"><i class="fa fa-search"></i></button>
+                            <button id="searchButton" onclick="prevMatch()">←</button>
+                            <button id="searchButton" onclick="nextMatch()">→</button>
+                            <span id="matchStatus" class="match-status"></span>
+                            <button id="searchButton" onclick="zoomOut()" title="Zoom out">A-</button>
+                            <button id="searchButton" onclick="zoomIn()" title="Zoom in">A+</button>
+                        </div>
+
+                        <div id="advanced-spec-editor" style="min-height: 0;"></div>
+                     </div>
+                  </div>
+              </div>
+        </div>
+
+        <div class="center-container">
+            <div class="top-panels">
+                <!-- Middle Panel -->
+                <div class="middle-panel">
+                <!-- Title header -->
+                <div class="middle-panel-header">
+                    <div class="header-title-centered">
+                        Custom spec
+                    </div>
+                </div>
+                <div class="middle-panel-main-content" id="middle-panel-content-area">
+                    <!-- Dropdown menu -->
+                    <div class="dropdown-title-container" style="justify-content: flex-end;">
+                        <button class="download-button" data-title="Download the JSON of the current spec">
+                            <i class='bx bxs-download'></i>JSON
+                        </button>
+                        
+                        <button class="copy-spec-button" data-title="Copy visualization spec to clipboard">
+                            <span class="default-content">
+                                <i class='bx bx-copy'></i> Copy Spec
+                            </span>
+                            <span class="feedback-content">
+                                <i class='bx bx-check'></i> Copied
+                            </span>
+                        </button>
+
+                        <button class="camera-button" data-title="Screenshot your current edit!" disabled>
+                            <i class='bx bx-camera'></i>
+                        </button>
+
+
+                    </div>
+                    <!-- THIS IS THE TARGET DIV FOR THE EXTERNAL SCRIPT -->
+                    <div id="vis">
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <div class="footer-panel">
+                <h3 class="panel-title">Previous changes</h3>
+                <div id="snapshot-row" class="snapshot-row"></div>
+            </div>
+        </div>
+
+        <script src="{{ url_for('static', filename='search.js') }}"></script>
+        <script src="{{ url_for('static', filename='editor.js') }}"></script>
+
+
+
+{% endblock %}

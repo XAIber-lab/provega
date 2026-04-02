@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Progressive LineChart with WebSocket (New Grammar)</title>
+
+  <!-- Vega & Vega-Lite -->
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <!-- Socket.IO client -->
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+  <!-- Custom Vega-Embed build -->
+  <script src="../build/vega-embed.min.js"></script>
+
+  <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+  <div id="vis"></div>
+  <script>
+    async function run() {
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 1200,
+
+        datasets: {
+          progressiveData: []
+        },
+
+        data: {
+          url: 'ws://localhost:3000',
+          format: { type: 'json' },
+
+          // ── New chunking grammar ──
+          // Moved below provega.progression.chunking (later)
+        },
+
+        // ── New Provega grammar ──
+        provega: {
+          progression: {
+            // -- data chunking --
+            chunking: {
+              type: 'data',
+              reading: {
+                method: 'sequential',
+                ascending: true,
+                chunk_size: 1,
+                frequency: 500,
+                seed: 0
+              }
+            },
+
+            // ── controllo dell'esecuzione ──
+            control: {
+              mode: 'exploration',
+              pause: true,
+              stop: true,
+              backward: true,
+              min_frequency: 500,
+              min_rendering_frequency: null
+            },
+
+            // ── monitoring ──
+            monitoring: {
+              aliveness: true,
+              etc: null,
+              progressbar: true,
+              change: {
+                area: false,
+                mark: false,
+                noise_reduction: false
+              },
+              quality: {
+                absolute_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_stability: {
+                  on_data_input: false,
+                  on_result_output: false,
+                  on_visual_output: false
+                },
+                absolute_certainty: {
+                  on_result_output: false
+                }
+              }
+            }
+          },
+
+          // -- visualization configuration --
+          visualization: {
+            visual_stability: true,
+            similarity_anchors: false
+          }
+        },
+
+        layer: [
+          {
+            mark: { type: 'line', point: false, strokeWidth: 2, opacity: 0.8 },
+            encoding: {
+              x: { field: 'x', type: 'quantitative', title: 'Time' },
+              y: { field: 'y', type: 'quantitative', title: 'Value' },
+              color: {
+                field: 'clusterID', type: 'nominal',
+                scale: {
+                  domain: ['Cluster-0', 'Cluster-1', 'Cluster-2'],
+                  range: ['green', 'orange', 'darkmagenta']
+                },
+                legend: { orient: 'top' }
+              },
+              detail: { field: 'category', type: 'nominal' }
+            }
+          },
+          {
+            transform: [
+              { calculate: "indexof([2,5,7], datum.x) !== -1", as: 'isChange' }
+            ],
+            mark: { type: 'rule', color: 'teal', strokeDash: [4, 2] },
+            encoding: {
+              x: { field: 'x', type: 'quantitative' },
+              opacity: {
+                condition: { test: 'datum.isChange', value: 1 },
+                value: 0
+              }
+            }
+          }
+        ],
+
+        config: {
+          background: '#ffffff',
+          axis: {
+            labelFont: 'Arial',
+            labelFontSize: 12,
+            titleFontSize: 14
+          }
+        }
+      };
+
+
+      await vegaEmbed('#vis', spec, {
+        sanitize: false,
+        config: spec.config,
+        tooltip: { theme: 'dark' }
+      });
+    }
+
+    run();
+  </script>
+</body>
+
+</html>

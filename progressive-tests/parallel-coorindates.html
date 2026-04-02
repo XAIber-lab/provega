@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <title>Progressive Parallel Coordinates (New Grammar)</title>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="../build/vega-embed.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+  <style>
+    body { font-family: Roboto, sans-serif; margin: 20px; background: #f5f5f5; }
+    #vis { margin: auto; max-width: 1000px; position: relative; }
+    h2 { text-align: center; }
+  </style>
+</head>
+<body>
+  <h2>Progressive Parallel Coordinates</h2>
+  <div id="vis"></div>
+  <script>
+    // Genero i 500 punti, con parametri modificati
+    const values = [];
+    for (let i = 0; i < 500; i++) {
+      const sl = +(3 + Math.random() * 12).toFixed(2);   // [4,8]
+      const sw = +(4 + Math.random() * 12).toFixed(2);       // [0,3]
+      const pl = +(2 + Math.random() * 18).toFixed(2);   // [2,20]
+      const pw = +(4 + Math.random() * 14).toFixed(2);   // [4,18]
+      values.push({
+        id: i,
+        sepalLength: sl,
+        sepalWidth: sw,
+        petalLength: pl,
+        petalWidth: pw,
+        sepalArea: +0.1*(sl * sw).toFixed(2)
+      });
+    }
+
+    const spec = {
+        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+        width: 1000,
+        height: 450,
+        padding: { left: 60, bottom: 60 },
+
+        // -- Provega extension (NEW version) --
+        provega: {
+          progression: {
+            // da data.chunking → provega.progression.chunking
+            chunking: {
+              type: "data",
+              reading: {
+                method: "sequential",
+                ascending: false,
+                chunk_size: 50,
+                frequency: 1000,
+                // seed: default 0, omesso
+              }
+            },
+
+            // da progressive.execution + progressive.rendering → provega.progression.control
+            control: {
+              mode: "monitoring",
+              // pause/stop/backward: tutti false per monitoring
+              pause: false,
+              stop: false,
+              backward: false,
+              // min_frequency = risultati.min_frequency (default 1000, omesso)
+              // min_rendering_frequency = rendering.min_frequency (era null)
+              min_rendering_frequency: null
+            },
+
+            // da progressive.process + progressive.visual_representation.noise_reduction + progressive.change + progressive.quality
+            monitoring: {
+              aliveness: false,
+              etc: "",           // come specificato
+              progressbar: true, // default true
+              change: {
+                noise_reduction: false
+                // mark/area omessi → default inactive
+              },
+              quality: {
+                absolute_progress: {
+                  on_data_input: false,
+                  on_result_output: false,
+                  on_visual_output: false
+                },
+                relative_progress: {
+                  on_data_input: false,
+                  on_result_output: false,
+                  on_visual_output: false
+                },
+                relative_stability: {
+                  on_data_input: false,
+                  on_result_output: false,
+                  on_visual_output: false
+                },
+                absolute_certainty: {
+                  on_result_output: false
+                }
+              }
+            }
+          },
+
+          // da progressive.visual_representation → provega.visualization
+          visualization: {
+            visual_stability: false,
+            similarity_anchors: false
+          }
+        },
+
+        // ── Data: ora solo raw values ──
+        data: {
+          format: { type: "json" },
+          values
+        },
+
+        transform: [
+          {
+            fold: ["sepalLength", "sepalWidth", "petalLength", "petalWidth", "sepalArea"],
+            as: ["key", "value"]
+          }
+        ],
+
+        layer: [
+          {
+            mark: { type: "line", strokeWidth: 1, color: "#4E5A89", opacity: 0.5 },
+            encoding: {
+              x: { field: "key", type: "ordinal", axis: null },
+              y: {
+                field: "value",
+                type: "quantitative",
+                axis: {
+                  title: null, grid: false, domain: true,
+                  ticks: true, labels: true
+                }
+              },
+              detail: { field: "id" }
+            }
+          },
+          {
+            mark: { type: "rule", color: "black", strokeWidth: 1 },
+            encoding: {
+              x: {
+                field: "key", type: "ordinal",
+                axis: {
+                  title: null, domain: true, ticks: false,
+                  labels: true, grid: false,
+                  labelAngle: 0, labelPadding: 10
+                }
+              },
+              y: { value: 0 },
+              y2: { value: 450 }
+            }
+          }
+        ],
+
+        config: {
+          background: "#f5f5f5",
+          view: { stroke: "transparent" }
+        }
+      };
+
+    vegaEmbed("#vis", spec, { tooltip: false, renderer: "svg" })
+      .then(() => console.log("Progressive PC avviato"))
+      .catch(console.error);
+  </script>
+</body>
+</html>

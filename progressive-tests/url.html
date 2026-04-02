@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vega-Embed Progressive Data (From URL)</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="../build/vega-embed.min.js"></script>
+    <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+    <div id="vis"></div>
+
+    <script>
+        async function run() {
+            const config = {
+                background: '#efefef',
+                axis: {
+                    labelFont: 'serif',
+                    labelFontSize: 16,
+                    tickWidth: 3,
+                    tickColor: 'red',
+                },
+            };
+
+            // Vega-Lite spec with Provega new grammar
+            const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+
+                // -- Provega extension (new grammar) --
+                provega: {
+                    progression: {
+                        // data chunking from URL
+                        chunking: {
+                            type: 'data',
+                            reading: {
+                                method: 'sequential',
+                                ascending: true,
+                                chunk_size: 1,
+                                frequency: 1000,
+                                seed: 0
+                            }
+                        },
+                        // playback controls
+                        control: {
+                            mode: 'exploration',
+                            pause: true,
+                            stop: true,
+                            backward: true,
+                            min_frequency: 1000,
+                            min_rendering_frequency: null
+                        },
+                        // monitoring (progress bar, etc.)
+                        monitoring: {
+                            aliveness: false,
+                            etc: null,
+                            progressbar: true,
+                            change: {
+                                mark: { active: false, blink: false },
+                                noise_reduction: false
+                            },
+                            quality: {
+                                absolute_progress: { on_data_input: false, on_result_output: false, on_visual_output: false },
+                                relative_progress: { on_data_input: false, on_result_output: false, on_visual_output: false },
+                                relative_stability: { on_data_input: false, on_result_output: false, on_visual_output: false },
+                                absolute_certainty: { on_result_output: false }
+                            }
+                        }
+                    },
+                    visualization: {
+                        visual_stability: false,
+                        similarity_anchors: false
+                    }
+                },
+
+                // data from URL (JSON or CSV)
+                data: {
+                    url: 'data/test-data.json',
+                    format: { type: 'json' }
+                },
+
+                // mark e encoding
+                mark: 'bar',
+                encoding: {
+                    x: { field: 'a', type: 'nominal' },
+                    y: { field: 'b', type: 'quantitative' },
+                    tooltip: { field: 'b', type: 'quantitative' }
+                }
+            };
+
+            // Run vega-embed
+            const result = await vegaEmbed('#vis', spec, {
+                config: config,
+                tooltip: { theme: 'dark' }
+            });
+
+            console.log(result);
+        }
+
+        run();
+    </script>
+</body>
+
+</html>

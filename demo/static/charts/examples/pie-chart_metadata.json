@@ -1,0 +1,7 @@
+{
+  "title": "Pie chart",
+  "description": "This progressive pie chart gradually reveals the proportion of each category in a randomly generated dataset. Each slice appears sequentially, allowing users to focus on one category at a time. The animation highlights changes in category importance and draws attention to structure over time. Ideal for demonstrating evolving or streamed data representations, even when the values are synthetic.",
+  "chart_type": "pie chart",
+  "keywords": ["progressive", "pie chart", "sequential", "category", "animated", "streamed", "synthetic", "proportion"],
+  "doi": ""
+}

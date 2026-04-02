@@ -1,0 +1,84 @@
+/* progress.css */
+#progress-fill {
+    height: 100%;
+    width: 0%; 
+    background-color: #4C78A8;
+    color: #fff;
+    font-size: 12px;
+    text-align: center;
+    line-height: 20px;
+    transition: width 0.5s ease;
+    white-space: nowrap;
+    overflow: hidden; 
+    text-overflow: ellipsis;
+}
+
+#progress-bar {
+    border: 1px solid;
+}
+
+/* Styles for control buttons */
+#progress-controls {
+    width: 100% !important;
+    max-width: 90%;
+    max-height: 90%;
+    margin: 5px auto;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+
+#progress-controls button {
+    width: 100%;
+    max-width: 100%;
+    cursor: pointer;
+    box-sizing: border-box; 
+    
+    flex: 1 1 auto; 
+
+    font-size: clamp(0.5rem, 3vw, 1rem);
+}
+
+#progress-info {
+    margin-bottom: 0.5em;
+}
+
+.chart-wrapper {
+    grid-area: chart;
+    min-width: 0;
+    min-height: 0;
+}
+
+.chart-wrapper svg, .chart-wrapper canvas {
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+}
+
+
+#footer-panel {
+    grid-area: footer;
+    flex-direction: row;
+    width: 100% !important;
+    margin-left: 0px !important;
+}
+
+#footer-panel:not(:has(#proc-panel)) #progress-container {
+  grid-column: 1 / span 2 !important;
+  width: 100% !important;
+}
+
+#footer-panel:not(:has(#proc-panel)) #progress-info {
+    width: 100% !important;
+}
+
+#quality-panel {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+#progress-container {
+    max-width: 100% !important;
+}

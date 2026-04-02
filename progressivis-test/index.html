@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ProgressiVis + ProVega | NYC taxi pickups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      background: #ffffff; color: #0f172a;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+    }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 6px 0 12px; font-size: 28px; letter-spacing: -0.4px; color: #0f172a; }
+    p { margin: 0 0 10px; line-height: 1.5; color: #1f2937; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; color: #2563eb; }
+    #vis {
+      margin-top: 12px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 10px 10px 0;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+    }
+    .hint { color: #475569; font-size: 14px; margin-top: 12px; }
+    code { background: #e2e8f0; padding: 2px 6px; border-radius: 6px; color: #0f172a; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="../build/vega-embed.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+</head>
+<body>
+  <main>
+    <div id="vis"></div>
+  </main>
+
+  <script type="module">
+    // Zoom e center NYC
+    const projection = { type: "mercator", center: [-73.98, 40.73], scale: 85000, translate: [480, 330] };
+    // Loader custom: consente ws/sio e evita il fetch HTTP (il socket lo gestisce ProVega)
+    const loader = vega.loader();
+    const baseLoad = loader.load.bind(loader);
+    const baseSanitize = loader.sanitize ? loader.sanitize.bind(loader) : (uri => ({ href: uri }));
+    loader.sanitize = (uri, options) => {
+      if (uri.startsWith("ws://") || uri.startsWith("wss://") || uri.startsWith("sio://")) {
+        return { href: uri };
+      }
+      return baseSanitize(uri, options);
+    };
+    loader.load = (uri, options) => {
+      if (uri.startsWith("ws://") || uri.startsWith("wss://") || uri.startsWith("sio://")) {
+        console.log("[Custom loader] Skipping fetch for", uri);
+        return Promise.resolve("[]");
+      }
+      return baseLoad(uri, options);
+    };
+
+    const spec = {
+      $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+      description: "Progressive taxi pickups on a NYC basemap, streamed from ProgressiVis over Socket.IO.",
+      background: "#ffffff",
+      autosize: { type: "fit-x", contains: "padding" },
+      data: {
+        name: "pickups",
+        // ws:// attiva il ramo socket di ProVega; il loader custom evita il fetch Vega
+        url: "ws://localhost:8765",
+        format: { type: "json" }
+      },
+      params: [
+        { name: "filterByHour", value: false, bind: { input: "checkbox", name: "Focus hour " } },
+        { name: "hourParam", value: 18, bind: { input: "range", min: 0, max: 23, step: 1 } }
+      ],
+      vconcat: [
+        {
+          height: 520,
+          width: 960,
+          layer: [
+            {
+              data: { url: "data/nyc-boroughs.geojson", format: { type: "json", property: "features" } },
+              mark: { type: "geoshape", fill: "#e5edf9", stroke: "#cbd5e1", strokeWidth: 1.2, tooltip: null },
+              projection
+            },
+            {
+              data: { name: "pickups" },
+              transform: [
+                { filter: "isFinite(datum.lat) && isFinite(datum.lon)" },
+                { filter: "datum.lat >= 40.55 && datum.lat <= 40.92 && datum.lon >= -74.06 && datum.lon <= -73.72" }, // clamp to NYC bbox
+                { filter: "!filterByHour || datum.hour === hourParam" },
+                { window: [{ op: "row_number", as: "row" }], sort: [{ field: "pickup_ts", order: "descending" }] },
+                { filter: "datum.row <= 2500" },
+                { calculate: "substring(datum.pickup_ts,11,16) + ' UTC'", as: "clock" }
+              ],
+              mark: { type: "circle", size: 26, color: "#0f4c81", opacity: 0.5, clip: true },
+              encoding: {
+                longitude: { field: "lon", type: "quantitative" },
+                latitude: { field: "lat", type: "quantitative" },
+                tooltip: [
+                  { field: "pickup_ts", title: "Pickup time" },
+                  { field: "weekday", title: "Weekday" },
+                  { field: "hour", title: "Hour" },
+                  { field: "lat", title: "Latitude", format: ".4f" },
+                  { field: "lon", title: "Longitude", format: ".4f" }
+                ]
+              },
+              projection
+            }
+          ],
+          resolve: { scale: { color: "independent" } }
+        },
+        {
+          height: 140,
+          width: 960,
+          data: { name: "pickups" },
+          transform: [
+            { filter: "!filterByHour || datum.hour === hourParam" },
+            { aggregate: [{ op: "count", as: "count" }], groupby: ["hour"] }
+          ],
+          mark: { type: "bar", cornerRadiusEnd: 2 },
+          encoding: {
+            x: { field: "hour", type: "ordinal", title: "Hour of day", sort: "ascending" },
+            y: { field: "count", type: "quantitative", title: "Pickups (accumulate while streaming)" },
+            color: { field: "hour", type: "quantitative", scale: { scheme: "turbo" }, legend: null },
+            tooltip: [
+              { field: "hour", title: "Hour" },
+              { field: "count", title: "Pickups" }
+            ]
+          }
+        }
+      ],
+      config: {
+        view: { stroke: null },
+        axis: { labelColor: "#334155", titleColor: "#0f172a", gridColor: "#e2e8f0" },
+        legend: { labelColor: "#0f172a", titleColor: "#0f172a" }
+      },
+      provega: {
+        progression: {
+          chunking: {
+            type: "data",
+            reading: { method: "sequential", ascending: true, chunk_size: 800, frequency: 350 },
+            total_chunks: 25 // default: MAX_ROWS 20k / CHUNK_SIZE 800
+          },
+          control: {
+            mode: "exploration",
+            pause: true,
+            stop: true,
+            backward: true,
+            min_frequency: 300,
+            min_rendering_frequency: null
+          },
+          monitoring: {
+              aliveness: true,
+              etc: 'eta_ms',
+              progressbar: true,
+              quality: {
+                absolute_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                }
+              }
+            }
+        }
+      }
+    };
+
+    vegaEmbed("#vis", spec, {
+      renderer: "canvas",
+      actions: false,
+      provegaEnabled: true,
+      loader
+    }).catch(console.error);
+  </script>
+</body>
+</html>

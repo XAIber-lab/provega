@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="utf-8" />
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="../../build/vega-embed.min.js"></script>
+    <link rel="stylesheet" href="../progress.css">
+</head>
+
+<body>
+    <div id="vis"></div>
+    <script>
+        async function run() {
+            const spec = {
+                "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                            "data": {
+                            "values": [
+                                {
+                                    "month": "Jan",
+                                    "value": 12
+                                },
+                                {
+                                    "month": "Feb",
+                                    "value": 18
+                                },
+                                {
+                                    "month": "Mar",
+                                    "value": 15
+                                },
+                                {
+                                    "month": "Apr",
+                                    "value": 22
+                                },
+                                {
+                                    "month": "May",
+                                    "value": 30
+                                },
+                                {
+                                    "month": "Jun",
+                                    "value": 28
+                                },
+                                {
+                                    "month": "Jul",
+                                    "value": 35
+                                },
+                                {
+                                    "month": "Aug",
+                                    "value": 33
+                                },
+                                {
+                                    "month": "Sep",
+                                    "value": 26
+                                },
+                                {
+                                    "month": "Oct",
+                                    "value": 20
+                                },
+                                {
+                                    "month": "Nov",
+                                    "value": 16
+                                },
+                                {
+                                    "month": "Dec",
+                                    "value": 14
+                                }
+                            ]
+                        },
+                        "mark": "line",
+                            "encoding": {
+                            "x": {
+                                "field": "month",
+                                    "type": "ordinal"
+                            },
+                            "y": {
+                                "field": "value",
+                                    "type": "quantitative"
+                            }
+                        },
+                        "provega": {
+                            "progression": {
+                                "chunking": {
+                                    "type": "data",
+                                        "reading": {
+                                        "method": "sequential",
+                                            "ascending": true,
+                                                "chunk_size": 3,
+                                                    "frequency": 700
+                                    }
+                                },
+                                "control": {
+                                    "mode": "exploration",
+                                        "pause": true,
+                                            "stop": true,
+                                                "backward": true,
+                                                    "min_frequency": 200,
+                                                        "min_rendering_frequency": 500
+                                },
+                                "monitoring": {
+                                    "aliveness": true,
+                                        "progressbar": true,
+                                            "change": {
+                                        "area": {
+                                            "active": true,
+                                                "blink": true,
+                                                    "style": {
+                                                "color": "orange",
+                                                    "opacity": "0.25"
+                                            }
+                                        },
+                                        "mark": {
+                                            "active": true,
+                                                "blink": false,
+                                                    "style": {
+                                                "color": "red",
+                                                    "opacity": "0.9"
+                                            }
+                                        },
+                                        "noise_reduction": true
+                                    },
+                                    "quality": {
+                                        "absolute_progress": {
+                                            "on_data_input": true,
+                                                "on_result_output": true,
+                                                    "on_visual_output": true
+                                        },
+                                        "relative_stability": {
+                                            "on_visual_output": true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+            };
+            await vegaEmbed("#vis", spec, { config: spec.config, tooltip: false });
+        }
+
+        run();
+    </script>
+</body>
+
+</html>

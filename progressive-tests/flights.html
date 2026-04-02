@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Progressive — DEP_DELAY per ORIGIN (step = departure hour)</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+    <script src="../build/vega-embed.min.js"></script>
+    <link rel="stylesheet" href="progress.css">
+    
+</head>
+
+<body>
+    <h1>History (hourly) — Mean DEP_DELAY per ORIGIN (progressive)</h1>
+    <div id="vis"></div>
+    <div id="dbg" class="dbg"></div>
+
+    <script>
+        /* CONFIG */
+        const csvUrl = 'data/flights-10k.csv'; // CSV path
+        const topN = 4;                  // number of origins to show
+        const historyLength = 10;        // number of steps (hours) to show
+        const includeCI = true;          // show 95% CI
+
+        /* utilities statistics */
+        function mean(arr) { return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null; }
+        function sd_pop(arr) { if (arr.length === 0) return 0; const m = mean(arr); return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length); }
+        function ci95(arr) { if (arr.length < 2) return 0; return 1.96 * (sd_pop(arr) / Math.sqrt(arr.length)); }
+
+        /* Load CSV and prepare raw data:
+           - compute DEP_HOUR = floor(DEP_TIME/100)
+           - pick topN origins by count
+           - compute mean DEP_DELAY per origin per hour
+           - select top `historyLength` hours by overall flight-count (so most-populated hours)
+           - produce raw: for each origin, for each selected hour create a record (mean, ci, step)
+           - sort raw by step then category => sequential reading produces coherent progression
+        */
+        async function loadAndPrepare() {
+            const txt = await fetch(csvUrl).then(r => { if (!r.ok) throw new Error('CSV load error: ' + r.status); return r.text(); });
+            const parsed = Papa.parse(txt, { header: true, skipEmptyLines: true });
+            const rows = parsed.data
+                .map(r => ({
+                    DEP_TIME: r.DEP_TIME === '' || r.DEP_TIME === undefined ? null : Number(r.DEP_TIME),
+                    DEP_DELAY: r.DEP_DELAY === '' || r.DEP_DELAY === undefined ? null : Number(r.DEP_DELAY),
+                    ORIGIN: r.ORIGIN
+                }))
+                .filter(r => r.ORIGIN && r.DEP_TIME !== null && r.DEP_DELAY !== null && !Number.isNaN(r.DEP_TIME) && !Number.isNaN(r.DEP_DELAY));
+
+            // compute DEP_HOUR
+            rows.forEach(r => { r.DEP_HOUR = Math.floor(r.DEP_TIME / 100); if (r.DEP_HOUR < 0) r.DEP_HOUR = 0; if (r.DEP_HOUR > 23) r.DEP_HOUR = 23; });
+
+            // topN origins by count
+            const counts = {};
+            for (const r of rows) counts[r.ORIGIN] = (counts[r.ORIGIN] || 0) + 1;
+            const categories = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, topN).map(d => d[0]);
+
+            // build map: origin -> hour -> list of delays
+            const map = {};
+            for (const c of categories) map[c] = {};
+            for (const r of rows) {
+                if (!(r.ORIGIN in map)) continue;
+                const h = r.DEP_HOUR;
+                if (!(h in map[r.ORIGIN])) map[r.ORIGIN][h] = [];
+                map[r.ORIGIN][h].push(r.DEP_DELAY);
+            }
+
+            // compute hour-level counts overall (across chosen categories) and pick most-populated hours
+            const hourCounts = {};
+            for (const c of categories) {
+                for (const hStr in map[c]) {
+                    const h = Number(hStr);
+                    hourCounts[h] = (hourCounts[h] || 0) + map[c][h].length;
+                }
+            }
+            const hoursSorted = Object.entries(hourCounts)
+                .sort((a, b) => b[1] - a[1])   // by count desc
+                .map(d => Number(d[0]));
+            // if not enough distinct hours, consider all 0..23
+            let selectedHours = hoursSorted.slice(0, historyLength);
+            if (selectedHours.length < historyLength) {
+                // fill with remaining hours in ascending order
+                const allHours = Array.from({ length: 24 }, (_, i) => i);
+                for (const h of allHours) {
+                    if (selectedHours.includes(h)) continue;
+                    selectedHours.push(h);
+                    if (selectedHours.length >= historyLength) break;
+                }
+            }
+            // for stable temporal sense, sort selectedHours ascending (earlier -> later)
+            selectedHours.sort((a, b) => a - b);
+            // limit to exactly historyLength
+            selectedHours = selectedHours.slice(0, historyLength);
+
+            // build raw: for each category produce historyLength entries (hour-step)
+            const raw = [];
+            for (let si = 0; si < selectedHours.length; si++) {
+                const hour = selectedHours[si];
+                for (const cat of categories) {
+                    const vals = map[cat][hour] || [];
+                    if (vals.length === 0) {
+                        raw.push({ category: cat, mean: null, ci_lower: null, ci_upper: null, step: si, n: 0, hour });
+                    } else {
+                        const mu = mean(vals);
+                        const ci = includeCI ? ci95(vals) : 0;
+                        const half = ci > 0 ? (ci / 2) : Math.max(0.01 * Math.abs(mu || 0), 1);
+                        raw.push({ category: cat, mean: mu, ci_lower: mu - half, ci_upper: mu + half, step: si, n: vals.length, hour });
+                    }
+                }
+            }
+
+            // sort by step then category to produce chunked sequence
+            raw.sort((a, b) => {
+                if (a.step !== b.step) return a.step - b.step;
+                return categories.indexOf(a.category) - categories.indexOf(b.category);
+            });
+
+            // debug
+            console.log('DEBUG categories:', categories);
+            console.log('DEBUG selectedHours:', selectedHours);
+            console.log('DEBUG raw.length (should equal categories.length*historyLength):', raw.length, categories.length * historyLength);
+            document.getElementById('dbg').textContent = `DEBUG: categories=${categories.join(', ')} — hours=[${selectedHours.join(', ')}] — records=${raw.length}`;
+
+            return { raw, categories, historyLength, selectedHours };
+        }
+
+        /* build vega-lite spec, keep provega but disable change highlighting (avoid your build crash) */
+        function buildSpec(raw, categories, historyLength, selectedHours) {
+            return {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 900,
+                height: 340,
+                padding: { top: 20, left: 60, right: 20, bottom: 40 },
+
+                provega: {
+                    progression: {
+                        chunking: {
+                            type: 'data',
+                            reading: {
+                                method: 'sequential',
+                                chunk_size: 1,
+                                frequency: 450
+                            }
+                        },
+                        control: {
+                            mode: 'exploration',
+                            pause: true,
+                            stop: true,
+                            backward: true,
+                            min_frequency: 200
+                        },
+                        monitoring: {
+                            aliveness: true,
+                            progressbar: true,
+                            // disable change highlighting to avoid embed crash in local build
+                            change: { area: { active: false, blink: false }, mark: { active: false, blink: false }, noise_reduction: false },
+                            quality: { absolute_progress: {}, relative_progress: {}, relative_stability: {}, absolute_certainty: {} }
+                        }
+                    },
+                    visualization: { visual_stability: true, similarity_anchors: false }
+                },
+
+                data: { values: raw, format: { type: 'json' } },
+
+                title: 'Progressive: mean DEP_DELAY per ORIGIN by departure hour',
+
+                layer: [
+                    {
+                        mark: { type: 'bar', stroke: 'black', strokeWidth: 0.2 },
+                        encoding: {
+                            x: { field: 'category', type: 'ordinal', title: 'Origin' },
+                            xOffset: { field: 'step', type: 'ordinal' },
+                            y: { field: 'mean', type: 'quantitative', title: 'Mean DEP_DELAY (min)' },
+                            color: {
+                                field: 'category', type: 'nominal',
+                                scale: { domain: categories, range: ['#8F80FF', '#57BA2A', '#FFB850', '#006092'] }
+                            },
+                            opacity: { field: 'step', type: 'quantitative', scale: { domain: [0, historyLength - 1], range: [0.28, 1] } },
+                            tooltip: [
+                                { field: 'category', title: 'Origin' },
+                                { field: 'hour', title: 'Departure hour' },
+                                { field: 'n', title: 'N flights' },
+                                { field: 'mean', title: 'Mean DEP_DELAY (min)', format: '.2f' }
+                            ]
+                        }
+                    },
+                    {
+                        mark: { type: 'rule', color: 'red', strokeWidth: 4 },
+                        encoding: {
+                            x: { field: 'category', type: 'ordinal' },
+                            xOffset: { field: 'step', type: 'ordinal' },
+                            y: { field: 'ci_lower', type: 'quantitative' },
+                            y2: { field: 'ci_upper' }
+                        }
+                    }
+                ],
+
+                config: {
+                    background: '#f5f5f5',
+                    axis: { labelFont: 'Arial', labelFontSize: 12 }
+                }
+            };
+        }
+
+        /* run */
+        loadAndPrepare()
+            .then(({ raw, categories, historyLength, selectedHours }) => {
+                if (!raw.length) {
+                    document.getElementById('vis').innerHTML = '<div style="padding:16px;color:#900">No usable data found - check the CSV.</div>';
+                    return;
+                }
+                const spec = buildSpec(raw, categories, historyLength, selectedHours);
+                vegaEmbed('#vis', spec, { config: spec.config, tooltip: { theme: 'dark' } })
+                    .then(() => console.log('Embed pronto — progressive hourly means.'))
+                    .catch(e => {
+                        console.error('Embed error:', e);
+                        document.getElementById('vis').innerHTML = '<div style="padding:12px;color:#900">Embed error: ' + (e && e.message ? e.message : e) + '</div>';
+                    });
+            })
+            .catch(err => {
+                console.error('Data preparation error:', err);
+                document.getElementById('vis').innerHTML = '<div style="padding:12px;color:#900">Data preparation error: ' + err.message + '</div>';
+            });
+
+    </script>
+</body>
+
+</html>

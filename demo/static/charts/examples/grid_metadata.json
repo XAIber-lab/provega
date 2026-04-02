@@ -1,0 +1,7 @@
+{
+  "title": "Grid",
+  "description": "This chart shows the sales trends over the past year across different regions.",
+  "doi": "https://doi.org/10.14778/3137628.3137637",
+  "keywords": ["grid, cell-by-cell"],
+  "chart_type": "Grid"
+}

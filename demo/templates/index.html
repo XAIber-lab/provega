@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+      <!-- camera tooltip -->
+      <div id="globalTooltip" class="global-tooltip">
+        <div class="tooltip-content">
+            Screenshot your current view
+            <div class="tooltip-arrow"></div>
+        </div>
+      </div>
+
+      <div class="container">
+
+          <!-- Left Panel -->
+          <div class="left-panel" id="left-panel">
+            <div class="resizer"></div>
+                <!-- hamburger header and collapsible menu -->
+                <div class="left-panel-header">
+                    <div class="hamburger-icon" id="hamburger-icon">☰</div>
+                    <h3 class="panel-title" id="grammar-parameters-title">Grammar parameters</h3>
+                </div>
+                <div class="collapsible-menu-content" id="collapsible-menu-content">
+                    <div class="upper-size">
+                        <div class="control-item">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="advanced-view-toggle" disabled>
+                                <span class="slider round"></span>
+                            </label>
+                            <span class="toggle-label">Advanced view</span>
+                        </div>
+
+                        <div class="control-item">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="toggle-view-toggle" disabled>
+                                <span class="slider round" id="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label">Toggles view</span>
+                        </div>
+                        
+                        <div id="hierarchy" class="hidden">
+                            <!-- HIERARCHY CONTROLS HERE FROM JS-->
+                        </div>
+                    
+                        <button id="run-visualization" disabled>Run Visualization</button>
+                    </div>
+
+                  <div class="text-area-group">
+                    <!-- Basic UI parameters -->
+                    <div id="basic-params">
+                        <label for="frequency">Frequency (ms):</label>
+                        <input type="number" id="frequency" min="250" disabled></textarea>
+                        <label for="size">Size:</label>
+                        <input type="number" id="size" rows="2" min="0" disabled></textarea>
+                        <label for="seed">Seed:</label>
+                        <input type="number" id="seed" rows="2" min="0" disabled></textarea>
+                    </div>
+
+                    <!-- Advanced view spec textarea (with search) -->
+                     <div id="advanced-editor-container" class="hidden">
+                        <label for="advanced-spec-editor">Edit full spec:</label>
+
+                        <div class="search-bar sticky-search" style="display: flex; align-items: center; gap: 5px; margin-top: 10px;">
+                            <input type="text" id="searchInput" placeholder="Search...">
+                            <button id="searchButton" onclick="performSearch()"><i class="fa fa-search"></i></button>
+                            <button id="searchButton" onclick="prevMatch()">←</button>
+                            <button id="searchButton" onclick="nextMatch()">→</button>
+                            <span id="matchStatus" class="match-status"></span>
+                            <button id="searchButton" onclick="zoomOut()" title="Zoom out">A-</button>
+                            <button id="searchButton" onclick="zoomIn()" title="Zoom in">A+</button>
+                        </div>
+
+                        <div id="advanced-spec-editor"></div>
+                     </div>
+                  </div>
+              </div>
+          </div>
+          
+          <div class="center-container">
+            <div class="top-panels">
+                <!-- Middle Panel -->
+                <div class="middle-panel">
+                <!-- Title header -->
+                <div class="middle-panel-header">
+                    <div class="header-title-centered">
+                        Grammar view
+                    </div>
+                </div>
+                <div class="middle-panel-main-content" id="middle-panel-content-area">
+                    <!-- Dropdown menu -->
+                    <div class="dropdown-title-container">
+                        <div class="selector-wrapper">
+                            <span class="dropdown-main-title">Visualization</span>
+                            <select id="content-selector">
+                                <option value="">-- Select --</option>
+                                {% for item in dropdown_items %}
+                                    <option value="{{ item.value }}" {% if item.disabled %}disabled{% endif %}>{{ item.text }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <button class="download-button" data-title="Download the JSON of the current spec" disabled>
+                            <i class='bx bxs-download'></i>JSON
+                        </button>
+
+                        <button class="copy-spec-button" data-title="Copy visualization spec to clipboard" disabled>
+                            <span class="default-content">
+                                <i class='bx bx-copy'></i>Copy Spec
+                            </span>
+                            <span class="feedback-content">
+                                <i class='bx bx-check'></i>Copied
+                            </span>
+                        </button>
+
+                        <button class="camera-button" data-title="Screenshot your current edit!" disabled>
+                            <i class='bx bx-camera'></i>
+                        </button>
+
+                        <button class="expand-button">
+                            <i class='bx bx-expand' ></i>
+                        </button>
+
+                    </div>
+                    <!-- THIS IS THE TARGET DIV FOR THE EXTERNAL SCRIPT -->
+                    <div id="vis">
+                        
+                    </div>
+                </div>
+                </div>
+
+                <!-- Right Panel -->
+                <div class="right-panel" id="right-panel-content">
+                    <div class="right-panel-header">
+                        <div class="header-title-centered">
+                            Reference view
+                        </div>
+                    </div>
+
+                    <div class="right-panel-content-area">
+                        <!-- Image reference section -->
+                        <div class="paper-details big">
+                            <h1>Paper details</h1>
+                        </div>
+
+                        <div class="vis-2" id="vis2">
+                            <div class="image-wrapper">
+                                <img alt="Reference image" id="figure-image" class="hidden">
+                            </div>
+
+                            <div class="figure" id="figure">
+                            </div>
+
+                            <div class="paper-details subtitle" id="desc">
+                            </div>
+                            
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="footer-panel">
+                <h3 class="panel-title">Previous changes</h3>
+                <div id="snapshot-row" class="snapshot-row"></div>
+            </div>
+      </div>
+      
+
+      <script src="{{ url_for('static', filename='charts/examples/choropleth.js') }}"></script>
+      <script src="{{ url_for('static', filename='charts/examples/density-map.js') }}"></script>
+      <script src="{{ url_for('static', filename='charts/examples/tpflow.js') }}"></script>
+      <script src="{{ url_for('static', filename='script.js') }}"></script>
+      <script src="{{ url_for('static', filename='search.js') }}"></script>
+
+{% endblock %}

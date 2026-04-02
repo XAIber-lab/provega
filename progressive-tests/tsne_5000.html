@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>t-SNE via Provega (chunking.type = "process")</title>
+
+    <!-- tsnejs (external library) -->
+    <script src="https://cdn.jsdelivr.net/gh/karpathy/tsnejs@master/tsne.js"></script>
+
+    <!-- Vega / Vega-Lite -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+
+  
+    <script src="../build/vega-embed.min.js"></script>
+
+    <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+    <h1>t-SNE via embed.ts (provega: process)</h1>
+    <div id="vis"></div>
+
+    <script>
+        (async () => {
+            const resp = await fetch('data/fashion_mnist/fashion_mnist_5000.json');
+            if (!resp.ok) throw new Error(`Fetch: ${resp.status}`);
+            const raw = await resp.json();;;
+
+            // Prepare array of objects with 'features' (the tsne handler expects it here)
+            const dataArr = raw.map(d => ({
+                id: d.id,
+                label: `Class ${d.label}`,
+                features: d.pixels.map(v => v / 255),
+                // x,y will be overwritten by t-SNE in the view
+                x: (Math.random() * 2 - 1) * 5,
+                y: (Math.random() * 2 - 1) * 5
+            }));
+
+            const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 1000,
+                height: 600,
+                padding: 50,
+                data: {
+                    // IMPORTANT: this name must match the dataset name the handler looks for
+                    name: 'source_0',
+                    values: dataArr
+                },
+                // Minimal Provega: configure chunking type "process"
+                provega: {
+                    progression: {
+                        chunking: {
+                            type: 'process',  // invokes initProcessTSNE via the "process" branch
+                            reading: {
+                                method: 'sequential',
+                                chunk_size: dataArr.length,
+                                frequency: 100
+                            }
+                        },
+                        control: {
+                            mode: 'monitoring',
+                            pause: false,
+                            stop: false
+                        }
+                    },
+                    visualization: {
+                        visual_stability: true
+                    }
+                },
+                mark: { type: 'circle', clip: true },
+                encoding: {
+                    x: { field: 'x', type: 'quantitative', scale: { domain: [-22, 22] } },
+                    y: { field: 'y', type: 'quantitative', scale: { domain: [-22, 22] } },
+                    color: { field: 'label', type: 'nominal', scale: { scheme: 'category10' } },
+                    tooltip: [
+                        { field: 'id', title: 'ID' },
+                        { field: 'label', title: 'Class' }
+                    ]
+                }
+            };
+
+         
+            const res = await vegaEmbed('#vis', spec, { actions: false, renderer: 'canvas' });
+            console.log('Embed ready:', res);
+            // t-SNE logic is started automatically by embed.ts when it
+            // detects provega.progression.chunking.type === 'process'.
+        })();
+    </script>
+</body>
+
+</html>
+
+

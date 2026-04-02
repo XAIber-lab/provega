@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Progressive LineChart – Cluster 1 Esteso e Centrate</title>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="../build/vega-embed.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+  <div id="vis"></div>
+  <script>
+    async function run() {
+      const N = 60;  // punti nel tempo
+
+      // definisco due segmenti di spike estesi per Cluster 2
+      const greenSpikes = [];
+      while (greenSpikes.length < 2) {
+        const start = Math.floor(Math.random() * (N - 5));
+        greenSpikes.push({ start, end: start + 5 });
+      }
+
+      // 1) Calcolo le serie "madri"
+      const motherSeries = {
+        "Cluster 1": [],
+        "Cluster 2": [],
+        "Cluster 3": []
+      };
+
+      for (let x = 0; x < N; x++) {
+        // Cluster 1: low noise 0-5
+        motherSeries["Cluster 1"].push(+(Math.random() * 2).toFixed(1));
+
+        // Cluster 2: high extended spike, then back to noise 0-60
+        let y2 = +(Math.random() * 60).toFixed(1);
+        for (const seg of greenSpikes) {
+          if (x >= seg.start && x < seg.end) {
+            y2 = +(50 + Math.random() * 100).toFixed(1);
+            break;
+          }
+        }
+        motherSeries["Cluster 2"].push(y2);
+
+        // Cluster 3: spike iniziale x<3, poi 20–60
+        const y3 = +(x < 3
+          ? (60 + Math.random() * 40).toFixed(1)
+          : (20 + Math.random() * 40).toFixed(1));
+        motherSeries["Cluster 3"].push(y3);
+      }
+
+      // 2) Genero varianti: 15 per Cluster 1, 5 per gli altri
+      const values = [];
+      for (let x = 0; x < N; x++) {
+        ["Cluster 1", "Cluster 2", "Cluster 3"].forEach(cluster => {
+          const baseY = motherSeries[cluster][x];
+          const count = cluster === "Cluster 1" ? 40 : 30;
+          for (let v = 1; v <= count; v++) {
+            // Gaussian noise, tighter for Cluster 1
+            const u1 = Math.random(), u2 = Math.random();
+            const z = Math.sqrt(-3 * Math.log(u1)) * Math.cos(8 * Math.PI * u2);
+            const sd = cluster === "Cluster 1" ? 2 : 10;
+            let yVar = +(baseY + z * sd).toFixed(1);
+            // ensure yVar does not go below zero
+            if (yVar < 0) yVar = 0;
+            values.push({
+              x,
+              y: yVar,
+              series: `${cluster} Variante ${v}`,
+              cluster
+            });
+          }
+        });
+      }
+
+      const spec = {
+        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+        width: 1000,
+        height: 300,
+        padding: { left: 50 },
+
+        // -- Provega extension (NEW version) --
+        provega: {
+          progression: {
+            // da data.chunking
+            chunking: {
+              type: "data",
+              reading: {
+                method: "sequential",
+                ascending: true,
+                chunk_size: 50,
+                frequency: 300,
+                // seed: default 0 → omesso
+              }
+            },
+
+            // da progressive.execution + progressive.rendering
+            control: {
+              mode: "exploration",
+              pause: true,
+              stop: true,
+              backward: true,
+              min_frequency: 300,
+              min_rendering_frequency: null
+            },
+
+            // da process + change + quality + visual_representation.noise_reduction
+            monitoring: {
+              aliveness: true,
+              etc: "eta_ms",
+              progressbar: true,  // default true
+              change: {
+                mark: { active: false, blink: false },
+                // area: default inactive
+                noise_reduction: false
+              },
+              quality: {
+                absolute_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_stability: {
+                  on_data_input: false,
+                  on_result_output: false,
+                  on_visual_output: false
+                },
+                absolute_certainty: {
+                  on_result_output: false
+                }
+              }
+            }
+          },
+
+          // da progressive.visual_representation
+          visualization: {
+            visual_stability: true,
+            similarity_anchors: false
+          }
+        },
+
+        // ── Data ora solo raw values ──
+        data: {
+          values,
+          format: { type: "json" }
+        },
+
+        layer: [
+          {
+            mark: { type: "line", point: false, strokeWidth: 0.9 },
+            encoding: {
+              x: { field: "x", type: "quantitative", title: "Time" },
+              y: { field: "y", type: "quantitative", title: "Value" },
+              detail: { field: "series" },
+              color: {
+                field: "cluster",
+                type: "nominal",
+                scale: {
+                  domain: ["Cluster 1", "Cluster 2", "Cluster 3"],
+                  range: ["#AA769E", "green", "darkorange"]
+                },
+                legend: { orient: "top" }
+              },
+              opacity: {
+                condition: {
+                  test: "datum.cluster === 'Cluster 2'",
+                  value: 0.2
+                },
+                value: 0.6
+              }
+            }
+          }
+        ],
+
+        config: {
+          background: "#ffffff",
+          axis: {
+            labelFont: "Arial",
+            labelFontSize: 12,
+            titleFontSize: 14
+          }
+        }
+      };
+
+      await vegaEmbed("#vis", spec, { config: spec.config, tooltip: false });
+    }
+
+    run();
+  </script>
+</body>
+
+</html>

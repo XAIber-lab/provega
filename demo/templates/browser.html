@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- Left Panel: FILTERS -->
+    <div class="left-panel browser" id="left-panel">
+        <div class="left-panel-header">
+            <div class="filter-icon" id="filter-icon"><i class='bx bx-filter-alt'></i> Filters</div>
+        </div>
+
+        <div class="collapsible-menu-content" id="collapsible-menu-content" style="display: flex; flex-direction: column;">
+            <input type="text" id="keyword-filter" placeholder="Search by keyword..." />
+
+            <label id="chart-count-label">Total charts: {{ charts|length }}</label>
+
+            <div class="order-row">
+                <label for="order-select">Order by</label>
+                <select id="order-select">
+                    <option value=""></option>
+                    <option value="title">Alphabet</option>
+                    <option value="chartType">Chart type</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Middle Panel (Gallery) -->
+    <div class="center-container">
+        <div class="top-panels">
+            <div class="middle-panel">
+                <div class="middle-panel-header">
+                    <div class="header-title-centered">Gallery</div>
+                </div>
+
+                <div class="middle-panel-main-content" id="middle-panel-content-area">
+                    <div class="gallery">
+                        {% for chart in charts %}
+                        <div class="gallery-item">
+                            <div class="image-card" onclick="openImage(this)"
+                                data-title="{{ chart.title }}"
+                                data-description="{{ chart.description }}"
+                                data-doi="{{ chart.doi }}"
+                                data-keywords="{{ chart.keywords | join(', ') | lower }}" 
+                                data-chart-type="{{ chart.chart_type }}"
+                                data-filename="{{ chart.filename }}"
+                                data-folder="{{ chart.folder }}">
+                                <img src="{{ url_for('static', filename=chart.filename) }}" alt="chart">
+                            </div>
+                            <div class="image-title">{{ chart.title }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Overlay for image and metadata -->
+                    <div id="overlay" class="overlay" onclick="closeOverlay()">
+                        <div class="overlay-content" onclick="event.stopPropagation()">
+                            <h3 id="meta-title"></h3>
+
+                            <div class="overlay-main-content">
+                                <!-- Left column: img and button -->
+                                <div class="left-column">
+                                    <!-- Image -->
+                                    <img id="overlay-img" src="" alt="chart image">
+                                    <!-- Button -->
+                                    <form id="overlay-form" method="POST" action="/editor">
+                                        <input type="hidden" name="filename" id="try-filename" value="">
+                                        <input type="hidden" name="folder" id="chart-folder">
+                                        <button id="tryButton" class="try-button" type="submit">Try it now</button>
+                                    </form>
+                                </div>
+
+                                <!-- Right column: metadata -->
+                                <div class="right-column">
+                                    <p id="meta-description" style="font-style: italic; color: #222; font-size: 1.05em;"></p>
+                                    <p><strong>DOI:</strong> <span id="meta-doi"></span></p>
+                                    <p><strong>Keywords:</strong> <span id="meta-keywords"></span></p>
+                                    <p><strong>Chart type:</strong> <span id="meta-chart-type"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upload Button -->
+                    <div class="upload-button-container">
+                        <button class="upload-trigger-button" onclick="openUploadOverlay()"><i class='bx bx-upload'></i> Upload</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay Upload Form -->
+    <div id="upload-overlay" class="overlay" style="display: none;">
+        <div class="overlay-content" onclick="event.stopPropagation()">
+            <form id="upload-form" method="POST" enctype="multipart/form-data" action="/upload">
+                <h2>Upload new chart</h2>
+
+                <label for="title">Title<span>*</span></label>
+                <input type="text" id="title" name="title" required>
+
+                <label for="description">Description<span>*</span></label>
+                <textarea id="description" name="description" rows="3" style="resize: none;" required></textarea>
+
+                <label for="doi">DOI</label>
+                <input type="text" id="doi" name="doi" placeholder="Optional">
+
+                <label for="keywords">Keywords<span>*</span></label>
+                <input type="text" id="keywords" name="keywords" required placeholder="comma-separated">
+
+                <label for="chart_type">Chart type<span>*</span></label>
+                <input type="text" id="chart_type" name="chart_type" required>
+
+                <label for="image">Image<span>*</span></label>
+                <input type="file" id="image" name="image" accept="image/*" required>
+
+                <label for="spec">Spec (JSON file)<span>*</span></label>
+                <input type="file" id="spec" name="spec" accept="application/json" required>
+
+                <button type="submit" class="submit-button">Upload</button>
+                <button type="button" class="cancel-button" onclick="closeUploadOverlay()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='browser.js') }}"></script>
+{% endblock %}

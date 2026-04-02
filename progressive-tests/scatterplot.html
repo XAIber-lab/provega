@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Test Quality &amp; Process Signals – Scatter Progressive</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="../build/vega-embed.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+  <div id="vis"></div>
+  <script>
+    async function run() {
+      // helper: circular random
+      function randCircle(r) {
+        const θ = Math.random() * 2 * Math.PI;
+        return [
+          Math.cos(θ) * Math.sqrt(Math.random()) * r,
+          Math.sin(θ) * Math.sqrt(Math.random()) * r
+        ];
+      }
+
+      // generate three clusters of points
+      const points = [];
+      ['Cluster-0', 'Cluster-1'].forEach((id, i) => {
+        const cx = 89 + 20 * i, cy = 50;
+        for (let j = 0; j < 800; j++) {
+          const [dx, dy] = randCircle(30);
+          points.push({
+            x: cx + dx + (Math.random() - .5) * 5,
+            y: cy + dy + (Math.random() - .5) * 5,
+            cluster: id
+          });
+        }
+      });
+
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 800,
+        height: 600,
+        padding: { left: 60, top: 30, bottom: 30 },
+
+        // ── Provega extension ──
+        provega: {
+          progression: {
+            // from data.chunking
+            chunking: {
+              type: 'data',
+              reading: {
+                method: 'sequential',
+                ascending: true,
+                chunk_size: 20,
+                frequency: 100,
+                seed: 42
+              }
+            },
+            // from progressive.execution + progressive.rendering
+            control: {
+              mode: 'exploration',
+              pause: true,
+              stop: true,
+              backward: true,
+              min_frequency: 200,
+              min_rendering_frequency: null
+            },
+            // from progressive.process + progressive.change + progressive.quality + visual_representation.noise_reduction
+            monitoring: {
+              aliveness: true,
+              etc: 'eta_ms',
+              progressbar: true,
+              change: {
+                mark: {
+                  active: false,
+                  blink: false,
+                  style: { color: '#f00' }
+                }
+              },
+              quality: {
+                absolute_progress: {
+                  on_data_input: 'abs_in',
+                  on_result_output: 'abs_out',
+                  on_visual_output: 'abs_vis'
+                },
+                relative_progress: {
+                  on_data_input: 'rel_in',
+                  on_result_output: 'rel_out',
+                  on_visual_output: 'rel_vis'
+                },
+                relative_stability: {
+                  on_data_input: 'stab_in',
+                  on_result_output: 'stab_out',
+                  on_visual_output: 'stab_vis'
+                },
+                absolute_certainty: {
+                  on_result_output: 'cert_out'
+                }
+              }
+            }
+          },
+          // from progressive.visual_representation
+          visualization: {
+            visual_stability: false,
+            similarity_anchors: false
+          }
+        },
+
+        // ── Data block now only carries raw values ──
+        data: {
+          values: points,
+          format: { type: 'json' }
+        },
+
+        layer: [
+          {
+            mark: { type: 'point', filled: true, size: 40, opacity: 0.6 },
+            encoding: {
+              x: { field: 'x', type: 'quantitative', title: 'X', nice: false },
+              y: { field: 'y', type: 'quantitative', title: 'Y', nice: false },
+              color: {
+                field: 'cluster',
+                type: 'nominal',
+                title: 'Cluster',
+                scale: {
+                  domain: ['Cluster-0', 'Cluster-1'],
+                  range: ['#5F796C', '#928192']
+                }
+              }
+            }
+          }
+        ],
+
+        config: {
+          background: '#f5f5f5',
+          axis: { labelFont: 'Arial', labelFontSize: 14 }
+        }
+      };
+
+
+      await vegaEmbed('#vis', spec, {
+        config: spec.config,
+        tooltip: { theme: 'dark' }
+      });
+    }
+
+    run();
+  </script>
+</body>
+
+</html>

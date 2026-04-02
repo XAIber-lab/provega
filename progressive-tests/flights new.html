@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Progressive - Mean DEP_DELAY per DEST (wide) - right legend</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+  <script src="../build/vega-embed.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+
+  <style>
+    /* general layout */
+    html, body {
+      margin: 0;
+      padding: 12px;
+      background: #fafafa;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #222;
+    }
+    h1 { font-size: 18px; margin: 6px 0 10px 0; }
+
+    /* main container: chart + right-side legend */
+    #main {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* chart area */
+    #vis-wrapper {
+      flex: 1 1 auto;
+      max-width: none;
+      overflow-x: auto;   /* horizontal scroll if needed */
+      padding-bottom: 8px;
+      box-sizing: border-box;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    #vis {
+      min-width: 900px;
+      max-width: none;
+      box-sizing: border-box;
+    }
+
+    /* override embed */
+    .vega-embed, .vega-embed > div {
+      max-width: none !important;
+      width: auto !important;
+      min-width: 0 !important;
+    }
+
+    /* right legend (more compact) */
+    #legend {
+      flex: 0 0 280px;
+      min-width: 180px;
+      max-width: 360px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .legend-block {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #222;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .legend-title { font-weight:700; margin-bottom:6px; font-size:12px; }
+    .swatch { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:8px; vertical-align:middle; border:1px solid rgba(0,0,0,0.08); }
+    .legend-row { display:flex; align-items:center; margin:4px 0; gap:8px; }
+    .code { font-weight:700; min-width:46px; display:inline-block; font-size:12px; }
+    .airport-name { color:#555; font-size:11px; line-height:1.1; }
+
+    #dbg { margin-top:8px; font-size:13px; color:#444; }
+
+    /* responsive: on narrow screens place legend below chart */
+    @media (max-width: 900px) {
+      #main { flex-direction: column; }
+      #legend { flex: 0 0 auto; width: 100%; order: 2; }
+      #vis-wrapper { order: 1; }
+      #vis { min-width: 600px; }
+    }
+  </style>
+</head>
+
+<body>
+  <h1>History (hourly) - Mean DEP_DELAY per DEST (top 10 dest per top 4 origin) - progressive</h1>
+
+  <div id="main">
+    <div id="vis-wrapper"><div id="vis"></div></div>
+    <div id="legend" aria-hidden="false"></div>
+  </div>
+
+  <div id="dbg" class="dbg"></div>
+
+<script>
+/* CONFIG */
+ const csvUrl = 'data/flights-10k.csv'; // change if needed
+const topN = 4;
+const perOriginTopK = 10;
+const historyLength = 10;
+const includeCI = true;
+
+ /* original colors */
+const originColors = ['#8F80FF', '#57BA2A', '#FFB850', '#006092'];
+
+ /* airport name lookup (common). Edit as needed. */
+const airportNames = {
+  ATL: "Atlanta — Hartsfield–Jackson International Airport",
+  CLT: "Charlotte — Charlotte Douglas International Airport",
+  JFK: "New York — John F. Kennedy International Airport",
+  LAX: "Los Angeles — Los Angeles International Airport",
+  ORD: "Chicago — O'Hare International Airport",
+  MIA: "Miami — Miami International Airport",
+  SEA: "Seattle — Seattle–Tacoma International Airport",
+  BOS: "Boston — Logan International Airport",
+  DEN: "Denver — Denver International Airport",
+  PHX: "Phoenix — Phoenix Sky Harbor International Airport",
+  TPA: "Tampa — Tampa International Airport",
+  MSP: "Minneapolis — Minneapolis–Saint Paul International Airport",
+  PHL: "Philadelphia — Philadelphia International Airport",
+  SFO: "San Francisco — San Francisco International Airport",
+  STL: "St. Louis — St. Louis Lambert International Airport",
+  RDU: "Raleigh/Durham — Raleigh–Durham International Airport",
+  MCO: "Orlando — Orlando International Airport",
+  PIT: "Pittsburgh — Pittsburgh International Airport",
+  BDL: "Hartford — Bradley International Airport",
+  ROC: "Rochester — Greater Rochester International Airport",
+  IND: "Indianapolis — Indianapolis International Airport",
+  DCA: "Washington, D.C. — Ronald Reagan Washington National Airport",
+  AUS: "Austin — Austin-Bergstrom International Airport",
+  BWI: "Baltimore — Baltimore/Washington International Thurgood Marshall Airport",
+  DFW: "Dallas/Fort Worth — Dallas/Fort Worth International Airport",
+  FLL: "Fort Lauderdale — Fort Lauderdale–Hollywood International Airport",
+  LAS: "Las Vegas — McCarran International Airport",
+  LGA: "New York — LaGuardia Airport",
+  MDW: "Chicago — Midway International Airport",
+  MSY: "New Orleans — Louis Armstrong New Orleans International Airport",
+  SAN: "San Diego — San Diego International Airport",
+  SAT: "San Antonio — San Antonio International Airport",
+  SLC: "Salt Lake City — Salt Lake City International Airport",
+
+};
+
+/* utilities statistics */
+function mean(arr) { return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null; }
+function sd_pop(arr) { if (arr.length === 0) return 0; const m = mean(arr); return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length); }
+function ci95(arr) { if (arr.length < 2) return 0; return 1.96 * (sd_pop(arr) / Math.sqrt(arr.length)); }
+
+/* Load CSV and prepare raw data */
+async function loadAndPrepare() {
+  const txt = await fetch(csvUrl).then(r => { if (!r.ok) throw new Error('CSV load error: ' + r.status); return r.text(); });
+  const parsed = Papa.parse(txt, { header: true, skipEmptyLines: true });
+  const rows = parsed.data
+    .map(r => ({
+      DEP_TIME: r.DEP_TIME === '' || r.DEP_TIME === undefined ? null : Number(r.DEP_TIME),
+      DEP_DELAY: r.DEP_DELAY === '' || r.DEP_DELAY === undefined ? null : Number(r.DEP_DELAY),
+      ORIGIN: r.ORIGIN,
+      DEST: r.DEST
+    }))
+    .filter(r => r.ORIGIN && r.DEST && r.DEP_TIME !== null && r.DEP_DELAY !== null && !Number.isNaN(r.DEP_TIME) && !Number.isNaN(r.DEP_DELAY));
+
+  rows.forEach(r => { r.DEP_HOUR = Math.floor(r.DEP_TIME / 100); if (r.DEP_HOUR < 0) r.DEP_HOUR = 0; if (r.DEP_HOUR > 23) r.DEP_HOUR = 23; });
+
+  // topN origins by count
+  const countsOrigin = {};
+  for (const r of rows) countsOrigin[r.ORIGIN] = (countsOrigin[r.ORIGIN] || 0) + 1;
+  const categories = Object.entries(countsOrigin).sort((a, b) => b[1] - a[1]).slice(0, topN).map(d => d[0]);
+
+  // top destinations per origin
+  const topDestPerOrigin = {};
+  const destCounts = {};
+  for (const r of rows) {
+    if (!(r.ORIGIN in destCounts)) destCounts[r.ORIGIN] = {};
+    destCounts[r.ORIGIN][r.DEST] = (destCounts[r.ORIGIN][r.DEST] || 0) + 1;
+  }
+  for (const c of categories) {
+    if (!destCounts[c]) { topDestPerOrigin[c] = []; continue; }
+    topDestPerOrigin[c] = Object.entries(destCounts[c]).sort((a,b)=>b[1]-a[1]).slice(0, perOriginTopK).map(d=>d[0]);
+  }
+
+  // build map origin->dest->hour->list of delays
+  const map = {};
+  for (const c of categories) {
+    map[c] = {};
+    const dests = topDestPerOrigin[c] || [];
+    for (const d of dests) map[c][d] = {};
+  }
+  for (const r of rows) {
+    if (!(r.ORIGIN in map)) continue;
+    if (!(r.DEST in map[r.ORIGIN])) continue; // skip dests not in topK for that origin
+    const h = r.DEP_HOUR;
+    if (!(h in map[r.ORIGIN][r.DEST])) map[r.ORIGIN][r.DEST][h] = [];
+    map[r.ORIGIN][r.DEST][h].push(r.DEP_DELAY);
+  }
+
+  // compute hour counts overall and select hours
+  const hourCounts = {};
+  for (const c of categories) {
+    for (const d in map[c]) {
+      for (const hStr in map[c][d]) {
+        const h = Number(hStr);
+        hourCounts[h] = (hourCounts[h] || 0) + map[c][d][h].length;
+      }
+    }
+  }
+  const hoursSorted = Object.entries(hourCounts).sort((a,b)=>b[1]-a[1]).map(d => Number(d[0]));
+  let selectedHours = hoursSorted.slice(0, historyLength);
+  if (selectedHours.length < historyLength) {
+    const allHours = Array.from({length:24},(_,i)=>i);
+    for (const h of allHours) {
+      if (selectedHours.includes(h)) continue;
+      selectedHours.push(h);
+      if (selectedHours.length >= historyLength) break;
+    }
+  }
+  selectedHours.sort((a,b)=>a-b);
+  selectedHours = selectedHours.slice(0, historyLength);
+
+  // build raw
+  const raw = [];
+  for (let si = 0; si < selectedHours.length; si++) {
+    const hour = selectedHours[si];
+    for (const cat of categories) {
+      const dests = topDestPerOrigin[cat] || [];
+      for (const dest of dests) {
+        const vals = (map[cat][dest] && map[cat][dest][hour]) ? map[cat][dest][hour] : [];
+        if (vals.length === 0) {
+          raw.push({ origin: cat, dest: dest, mean: null, ci_lower: null, ci_upper: null, step: si, n: 0, hour });
+        } else {
+          const mu = mean(vals);
+          const ci = includeCI ? ci95(vals) : 0;
+          const half = ci > 0 ? (ci / 2) : Math.max(0.01 * Math.abs(mu || 0), 1);
+          raw.push({ origin: cat, dest: dest, mean: mu, ci_lower: mu - half, ci_upper: mu + half, step: si, n: vals.length, hour });
+        }
+      }
+    }
+  }
+
+  raw.sort((a,b)=> {
+    if (a.step !== b.step) return a.step - b.step;
+    const oi = categories.indexOf(a.origin) - categories.indexOf(b.origin);
+    if (oi !== 0) return oi;
+    const da = (topDestPerOrigin[a.origin] || []).indexOf(a.dest);
+    const db = (topDestPerOrigin[b.origin] || []).indexOf(b.dest);
+    return da - db;
+  });
+
+  // debug info
+  console.log('DEBUG categories (origins):', categories);
+  console.log('DEBUG topDestPerOrigin:', topDestPerOrigin);
+  console.log('DEBUG selectedHours:', selectedHours);
+  console.log('DEBUG raw.length:', raw.length);
+  document.getElementById('dbg').textContent = `DEBUG: origins=${categories.join(', ')} — perOriginTopK=${perOriginTopK} — hours=[${selectedHours.join(', ')}] — records=${raw.length}`;
+
+  return { raw, categories, topDestPerOrigin, historyLength, selectedHours };
+}
+
+/* build spec: resolve.scale.x = "independent" => each facet X domain shows only present dests */
+function buildSpec(raw, categories, topDestPerOrigin, historyLength, selectedHours, totalWidth) {
+  const facetCount = Math.max(1, categories.length);
+  const facetWidth = Math.max(160, Math.floor((totalWidth - 40) / facetCount));
+
+  return {
+    $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+    width: totalWidth,
+    height: 340,
+    padding: { top:20, left:10, right:10, bottom:40 },
+
+    provega: {
+      progression: {
+        chunking: {
+          type: 'data',
+          reading: {
+            method: 'sequential',
+            chunk_size: 1,
+            frequency: 450
+          }
+        },
+        control: { mode:'exploration', pause:true, stop:true, backward:true, min_frequency:200 },
+        monitoring: { aliveness:true, progressbar:true, etc: "eta_ms", change:{ area:{active:false, blink:false}, mark:{active:false, blink:false}, noise_reduction:false }, quality:{ absolute_progress:{}, relative_progress:{}, relative_stability:{}, absolute_certainty:{} } }
+      },
+      visualization: { visual_stability: true, similarity_anchors: false }
+    },
+
+    data: { values: raw, format: { type: 'json' } },
+
+    title: 'Progressive: mean DEP_DELAY per DEST for top ORIGINs (hourly steps)',
+
+    resolve: { scale: { x: "independent" } }, // IMPORTANT
+
+    facet: {
+      column: { field: 'origin', type: 'nominal', header: { title: 'Origin', labelAngle: 0 } }
+    },
+
+    spec: {
+      width: facetWidth,
+      layer: [
+        {
+          mark: { type: 'bar', stroke: 'black', strokeWidth: 0.2 },
+          encoding: {
+            x: { field: 'dest', type: 'nominal', title: 'Destination', axis: { labelAngle: -45, labelLimit: 80 } },
+            y: { field: 'mean', type: 'quantitative', title: 'Mean DEP_DELAY (min)', scale:{ nice:true } },
+            opacity: { field: 'step', type: 'quantitative', scale: { domain: [0, historyLength - 1], range: [0.28, 1] } },
+            color: {
+              field: 'origin', type: 'nominal',
+              scale: { domain: categories, range: originColors },
+              legend: null
+            },
+            tooltip: [
+              { field: 'origin', title: 'Origin' },
+              { field: 'dest', title: 'Destination' },
+              { field: 'hour', title: 'Departure hour' },
+              { field: 'n', title: 'N flights' },
+              { field: 'mean', title: 'Mean DEP_DELAY (min)', format: '.2f' }
+            ]
+          }
+        },
+        {
+          mark: { type: 'rule', strokeWidth: 3 },
+          encoding: {
+            x: { field: 'dest', type: 'nominal' },
+            y: { field: 'ci_lower', type: 'quantitative' },
+            y2: { field: 'ci_upper', type: 'quantitative' },
+            opacity: { field: 'step', type: 'quantitative', scale: { domain: [0, historyLength - 1], range: [0.15, 0.9] } }
+          }
+        }
+      ]
+    },
+
+    config: {
+      background: '#f5f5f5',
+      facet: { spacing: 10 },
+      axis: { labelFont: 'Arial', labelFontSize: 11 },
+      view: { stroke: 'transparent' }
+    }
+  };
+}
+
+/* render legend dinamica nella colonna di destra: colori origin + mappa codici -> nomi */
+function renderLegend(categories, topDestPerOrigin) {
+  const legendEl = document.getElementById('legend');
+  legendEl.innerHTML = ''; // pulisce
+
+  // colori per origin (swatch + codice + nome)
+  const colorBlock = document.createElement('div');
+  colorBlock.className = 'legend-block';
+  const ct = document.createElement('div'); ct.className = 'legend-title'; ct.textContent = 'Origin (colori)';
+  colorBlock.appendChild(ct);
+  categories.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    const sw = document.createElement('span');
+    sw.className = 'swatch';
+    sw.style.background = originColors[i % originColors.length];
+    const code = document.createElement('span');
+    code.className = 'code';
+    code.textContent = c;
+    const name = document.createElement('span');
+    name.className = 'airport-name';
+    name.textContent = airportNames[c] ? airportNames[c] : 'Nome aeroporto non disponibile';
+    row.appendChild(sw); row.appendChild(code); row.appendChild(name);
+    colorBlock.appendChild(row);
+  });
+  legendEl.appendChild(colorBlock);
+
+  // codici e nomi (origin + dest) in blocco compatto
+  const codes = new Set();
+  categories.forEach(c => codes.add(c));
+  for (const o in topDestPerOrigin) {
+    (topDestPerOrigin[o] || []).forEach(d => codes.add(d));
+  }
+  const codeBlock = document.createElement('div');
+  codeBlock.className = 'legend-block';
+  const ct2 = document.createElement('div'); ct2.className = 'legend-title'; ct2.textContent = 'Codici aeroporti (destinazioni incluse)';
+  codeBlock.appendChild(ct2);
+
+  // sort codes for stable order and limit description length
+  Array.from(codes).sort().forEach(code => {
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    const codeEl = document.createElement('span');
+    codeEl.className = 'code';
+    codeEl.textContent = code;
+    const nameEl = document.createElement('span');
+    nameEl.className = 'airport-name';
+    nameEl.textContent = airportNames[code] ? airportNames[code] : 'Nome aeroporto non disponibile';
+    row.appendChild(codeEl); row.appendChild(nameEl);
+    codeBlock.appendChild(row);
+  });
+
+  legendEl.appendChild(codeBlock);
+
+  
+}
+
+/* run */
+(async function run() {
+  try {
+    const { raw, categories, topDestPerOrigin, historyLength, selectedHours } = await loadAndPrepare();
+    if (!raw.length) {
+      document.getElementById('vis').innerHTML = '<div style="padding:16px;color:#900">Nessun dato utile trovato — controlla il CSV.</div>';
+      return;
+    }
+
+    // larghezza dinamica
+    const vw = Math.max(document.documentElement.clientWidth || window.innerWidth, 900);
+    const totalWidth = Math.max(900, Math.min(1600, Math.floor(vw * 0.95)));
+
+    // set min-width for the vis container via JS
+    const visEl = document.getElementById('vis');
+    visEl.style.minWidth = (totalWidth) + 'px';
+
+    // render dynamic legend (right column)
+    renderLegend(categories, topDestPerOrigin);
+
+    const spec = buildSpec(raw, categories, topDestPerOrigin, historyLength, selectedHours, totalWidth);
+
+    vegaEmbed('#vis', spec, { config: spec.config, tooltip: { theme: 'dark' } })
+      .then(res => {
+        try {
+          if (res && res.view && typeof res.view.width === 'function') {
+            res.view.width(totalWidth);
+            if (typeof res.view.runAsync === 'function') res.view.runAsync();
+          }
+          const embedRoot = document.querySelector('#vis .vega-embed');
+          if (embedRoot) {
+            embedRoot.style.maxWidth = 'none';
+            embedRoot.style.minWidth = totalWidth + 'px';
+            embedRoot.style.width = totalWidth + 'px';
+          }
+        } catch (e) {
+          console.warn('Unable to fully force view width:', e);
+        }
+        console.log('Embed ready - progressive with right-side legend.');
+      })
+      .catch(e => {
+        console.error('Embed error:', e);
+        document.getElementById('vis').innerHTML = '<div style="padding:12px;color:#900">Embed error: ' + (e && e.message ? e.message : e) + '</div>';
+      });
+
+    // resize handler
+    window.addEventListener('resize', () => {
+      const vw2 = Math.max(document.documentElement.clientWidth || window.innerWidth, 900);
+      const tW = Math.max(900, Math.min(1600, Math.floor(vw2 * 0.95)));
+      visEl.style.minWidth = tW + 'px';
+      const embedRoot = document.querySelector('#vis .vega-embed');
+      if (embedRoot) {
+        embedRoot.style.minWidth = tW + 'px';
+        embedRoot.style.width = tW + 'px';
+      }
+    });
+
+  } catch (err) {
+    console.error('Data preparation error:', err);
+    document.getElementById('vis').innerHTML = '<div style="padding:12px;color:#900">Data preparation error: ' + err.message + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

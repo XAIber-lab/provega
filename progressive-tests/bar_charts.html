@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>History + CI with advanced custom Vega grammar</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="../build/vega-embed.min.js"></script>
+    <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+    <div id="vis"></div>
+    <script>
+        const categories = ['A', 'B', 'C', 'D'];
+        const historyLength = 10;
+        let data = categories.map(c => ({ category: c, values: [], history: [] }));
+
+        function getMean(arr) {
+            return arr.reduce((s, v) => s + v, 0) / arr.length;
+        }
+
+        function getCI(arr) {
+            if (arr.length < 2) return 0;
+            const m = getMean(arr);
+            const sd = Math.sqrt(arr.map(x => (x - m) ** 2).reduce((a, b) => a + b) / arr.length);
+            return 1.96 * (sd / Math.sqrt(arr.length));
+        }
+
+        function updateDataForCategory(cat) {
+            // Generate a new value for the specified category
+                let base, sd;
+                if (cat === 'A') { base = 75; sd = 7; }
+                else { base = 57.5; sd = 10; }
+
+                // Box–Muller
+                const u1 = Math.random(), u2 = Math.random();
+                let val = base + Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) * sd;
+
+                // If it's the first value (step 0), force into [min0, max0]
+                const min0 = (cat === 'A' ? 70 : 50);
+                const max0 = (cat === 'A' ? 80 : 65);
+                if (data.find(d => d.category === cat).values.length === 0) {
+                    // resample uniformly within the guaranteed interval:
+                    val = min0 + Math.random() * (max0 - min0);
+                }
+
+                data.forEach(d => {
+                    if (d.category === cat) {
+                        d.values.push(val);
+
+                        // compute CI
+                        let rawCI = d.values.length < 2 ? 0 : getCI(d.values);
+
+                        // if it's the first step, enforce a minimum visible CI
+                        if (d.values.length === 1) {
+                            rawCI = 5;  // e.g. fixed 5 CI units
+                        }
+
+                        // optional: amplify a bit to make it visible
+                        const ci = rawCI * 4.5;
+
+                        d.history.push({
+                            mean: getMean(d.values),
+                            ci
+                        });
+                        if (d.history.length > historyLength) {
+                            d.history.shift();
+                        }
+                    }
+                });
+            }
+
+        function getHistoryData() {
+            return data.flatMap(d =>
+                d.history.map((h, i) => {
+                    const halfWidth = h.ci === 0
+                        ? Math.max(0.01 * h.mean, 1)
+                        : h.ci / 2;
+                    return {
+                        category: d.category,
+                        mean: h.mean,
+                        ci_lower: h.mean - halfWidth,
+                        ci_upper: h.mean + halfWidth,
+                        step: i
+                    };
+                })
+            );
+        }
+
+        // Riempio il dataset con 10 valori per categoria
+        categories.forEach(cat => {
+            for (let i = 0; i < historyLength; i++) {
+                updateDataForCategory(cat);
+            }
+        });
+
+        // Ordino per step, poi per category
+        let raw = getHistoryData();
+        raw.sort((a, b) => {
+            if (a.step !== b.step) return a.step - b.step;
+            return categories.indexOf(a.category)
+                - categories.indexOf(b.category);
+        });
+
+        const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 800,
+                height: 300,
+                padding: { top: 20, left: 60, right: 20, bottom: 20 },
+
+                // -- Provega extension (NEW version) --
+                provega: {
+                    progression: {
+                        // da data.chunking
+                        chunking: {
+                            type: 'data',
+                            reading: {
+                                method: 'sequential',
+                                chunk_size: 1,
+                                frequency: 500,
+                                // ascending: default true
+                                // seed: default 0
+                            }
+                        },
+
+                        // da progressive.execution + rendering.min_frequency
+                        control: {
+                            mode: 'exploration',
+                            pause: true,
+                            stop: true,
+                            backward: true,
+                            min_frequency: 200,
+                            min_rendering_frequency: null
+                        },
+
+                        // da process + change + quality + visual_representation.noise_reduction
+                        monitoring: {
+                            aliveness: true,
+                            etc: 'eta_ms',
+                            progressbar: true, // default true
+                            change: {
+                                // aree di cambio
+                                area: {
+                                    active: true,
+                                    blink: true,
+                                    style: { color: '#0f0', opacity: 0.7 }
+                                },
+                                // mark di cambio
+                                mark: {
+                                    active: true,
+                                    blink: false,
+                                    style: { color: '#f00' }
+                                },
+                                noise_reduction: false
+                            },
+                            quality: {
+                                absolute_progress: {
+                                    on_data_input: 'abs_in',
+                                    on_result_output: 'abs_out',
+                                    on_visual_output: 'abs_vis'
+                                },
+                                relative_progress: {
+                                    on_data_input: 'rel_in',
+                                    on_result_output: 'rel_out',
+                                    on_visual_output: 'rel_vis'
+                                },
+                                relative_stability: {
+                                    on_data_input: 'stab_in',
+                                    on_result_output: 'stab_out',
+                                    on_visual_output: 'stab_vis'
+                                },
+                                absolute_certainty: {
+                                    on_result_output: 'cert_out'
+                                }
+                            }
+                        }
+                    },
+
+                    // da progressive.visual_representation
+                    visualization: {
+                        visual_stability: true,
+                        similarity_anchors: false
+                    }
+                },
+
+                // ── Data: ora solo raw values ──
+                data: {
+                    values: raw,
+                    format: { type: 'json' }
+                },
+
+                title: 'History + CI',
+
+                layer: [
+                    {
+                        mark: { type: 'bar', stroke: 'black', strokeWidth: 0.2 },
+                        encoding: {
+                            x: { field: 'category', type: 'ordinal' },
+                            xOffset: { field: 'step', type: 'ordinal' },
+                            y: { field: 'mean', type: 'quantitative', title: 'Mean Value' },
+                            color: {
+                                field: 'category',
+                                type: 'nominal',
+                                scale: {
+                                    domain: categories,
+                                    range: ['#8F80FF', '#57BA2A', '#FFB850', '#006092']
+                                }
+                            },
+                            opacity: {
+                                field: 'step',
+                                type: 'quantitative',
+                                scale: { domain: [0, historyLength - 1], range: [0.3, 1] }
+                            }
+                        }
+                    },
+                    {
+                        mark: { type: 'rule', color: 'red', strokeWidth: 6 },
+                        encoding: {
+                            x: { field: 'category', type: 'ordinal' },
+                            xOffset: { field: 'step', type: 'ordinal' },
+                            y: { field: 'ci_lower', type: 'quantitative' },
+                            y2: { field: 'ci_upper' }
+                        }
+                    }
+                ],
+
+                config: {
+                    background: '#f5f5f5',
+                    axis: {
+                        labelFont: 'Arial',
+                        labelFontSize: 14
+                    }
+                }
+            };
+
+
+        vegaEmbed('#vis', spec, { config: spec.config, tooltip: { theme: 'dark' } })
+            .then(() => { })
+            .catch(console.error);
+    </script>
+</body>
+
+</html>

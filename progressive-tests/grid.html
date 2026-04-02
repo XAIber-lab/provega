@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Progressive Grid (New Grammar)</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="../build/vega-embed.min.js"></script>
+    <link rel="stylesheet" href="progress.css">
+    <style>
+        body {
+            background: #f5f5f5;
+            font-family: Roboto, sans-serif;
+            margin: 20px;
+        }
+
+        #vis {
+            margin: 20px auto;
+            width: 800px;
+            position: relative;
+        }
+
+        .vega-embed>svg {
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Progressive Grid</h1>
+    <div id="vis"></div>
+
+    <!-- 1) Load the JS that populates `data[]` -->
+    <script src="data/grid-data.js"></script>
+
+    <!-- 2) Inline: build the spec and embed -->
+    <script>
+        const spec = {
+                $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+                width: 600,
+                height: 600,
+
+                // -- Provega extension (NEW grammar) --
+                provega: {
+                    progression: {
+                        // from data.chunking
+                        chunking: {
+                            type: 'data',
+                            reading: {
+                                method: 'sequential',
+                                ascending: true,
+                                chunk_size: 1,
+                                frequency: 100
+                            }
+                        },
+
+                        // da progressive.execution
+                        control: {
+                            mode: 'exploration',
+                            pause: true,
+                            stop: true,
+                            backward: true,
+                            min_frequency: 500,
+                            min_rendering_frequency: null
+                        },
+
+                        // da process + quality + visual_representation.noise_reduction
+                        monitoring: {
+                            aliveness: true,
+                            etc: 'eta_ms',
+                            progressbar: true,
+                            change: {
+                                // nessun change specificato → default inactive
+                                noise_reduction: false
+                            },
+                            uncertainty: {
+                                active: true,
+                                variable: 'uncertainty',
+                                domain: [0, 1],
+                                percentage: true,
+                                show_label: true,
+                                show_max: true,
+                                label: 'Process Uncertainty',
+                                style: {
+                                    label: {
+                                        color: '#333',
+                                        fontSize: 12,
+                                        fontFamily: 'Arial',
+                                        fontWeight: 'bold'
+                                    },
+                                    value: {
+                                        color: '#d62728',
+                                        fontSize: 14,
+                                        fontFamily: 'Arial'
+                                    }
+                                }
+                            },
+                            quality: {
+                                absolute_progress: {
+                                    on_data_input: true,
+                                    on_result_output: true,
+                                    on_visual_output: true
+                                },
+                                relative_progress: {
+                                    on_data_input: true,
+                                    on_result_output: true,
+                                    on_visual_output: true
+                                },
+                                relative_stability: {
+                                    on_data_input: false,
+                                    on_result_output: false,
+                                    on_visual_output: false
+                                },
+                                absolute_certainty: {
+                                    on_result_output: false
+                                }
+                            }
+                        }
+                    },
+
+                    // da progressive.visual_representation
+                    visualization: {
+                        visual_stability: false,
+                        similarity_anchors: false
+                    }
+                },
+
+                // ── Data block solo raw values ──
+                data: {
+                    format: { type: 'json' },
+                    values: data
+                },
+
+                mark: { type: 'rect', stroke: 'black', strokeWidth: 3 },
+                encoding: {
+                    x: {
+                        field: 'col',
+                        type: 'ordinal',
+                        axis: { title: null, domain: false, ticks: false, labels: false }
+                    },
+                    y: {
+                        field: 'row',
+                        type: 'ordinal',
+                        axis: { title: null, domain: false, ticks: false, labels: false }
+                    },
+                    color: {
+                        field: 'value',
+                        type: 'quantitative',
+                        scale: {
+                            domain: [0, 50, 100, 150, 200, 250],
+                            range: ['#C3E3FE', '#5AB0FE', '#00B4F5', '#004FEE', '#0071C0', '#001727']
+                        },
+                        legend: { title: 'Value' }
+                    }
+                },
+
+                config: {
+                    view: { stroke: 'transparent' },
+                    background: '#f5f5f5',
+                    axis: { labelFont: 'Arial', labelFontSize: 12 }
+                }
+            };
+
+
+        vegaEmbed('#vis', spec, {
+            config: spec.config,
+            tooltip: { theme: 'dark' }
+        })
+            .then(res => console.log('✅ Progressive Grid inizializzato', res))
+            .catch(console.error);
+    </script>
+</body>
+
+</html>

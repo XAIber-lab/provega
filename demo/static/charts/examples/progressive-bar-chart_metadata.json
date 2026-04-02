@@ -1,0 +1,7 @@
+{
+  "title": "Progressive Bar Chart with Confidence Intervals",
+  "description": "This bar chart displays randomly generated values with associated confidence intervals, rendered progressively. Bars and their error bands appear in stages, simulating real-time updates or streamed analytics. The gradual display helps emphasize uncertainty and expected variance while maintaining clarity. Useful for showcasing estimation and progression together in a time-friendly format.",
+  "chart_type": "progressive bar chart",
+  "keywords": ["progressive", "bar chart", "confidence interval", "incremental", "animated", "synthetic", "error band", "temporal"],
+  "doi": ""
+}

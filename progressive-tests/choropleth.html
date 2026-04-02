@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>USA Choropleth</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="../build/vega-embed.min.js"></script>
+  <script src="https://d3js.org/topojson.v1.min.js"></script>
+  <link rel="stylesheet" href="progress.css">
+</head>
+
+<body>
+  <h1>USA Choropleth</h1>
+  <div id="vis"></div>
+
+  <script>
+    (async () => {
+      // 1) Load TopoJSON states + counties
+      const [usStates, usCounties] = await Promise.all([
+        fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json').then(r=>r.json()),
+        fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json').then(r=>r.json())
+      ]);
+      const states   = topojson.feature(usStates,  usStates.objects.states).features;
+      const counties = topojson.feature(usCounties, usCounties.objects.counties).features;
+
+      // Scale/translate Alaska a bit (pure client-side tweak on coords)
+      const scaleGeometry = (geometry, factor, delta) => {
+        const collect = [];
+        const walk = (coords) => {
+          coords.forEach(ring => ring.forEach(pt => collect.push(pt)));
+        };
+        if (geometry.type === "Polygon") walk(geometry.coordinates);
+        if (geometry.type === "MultiPolygon") geometry.coordinates.forEach(walk);
+        const cx = collect.reduce((s, p) => s + p[0], 0) / collect.length;
+        const cy = collect.reduce((s, p) => s + p[1], 0) / collect.length;
+        const scalePoint = ([x, y]) => [cx + factor * (x - cx) + delta[0], cy + factor * (y - cy) + delta[1]];
+        const mapRings = (coords) => coords.map(ring => ring.map(scalePoint));
+        if (geometry.type === "Polygon") {
+          return { type: "Polygon", coordinates: mapRings(geometry.coordinates) };
+        }
+        return { type: "MultiPolygon", coordinates: geometry.coordinates.map(mapRings) };
+      };
+      const alaska = states.find(d => d.properties.name === "Alaska");
+      if (alaska) alaska.geometry = scaleGeometry(alaska.geometry, 1.4, [0, -1.0]);
+
+      // 2) Prepare county data (static)
+      const dataCounties = counties.map(d => ({ geometry: d }));
+
+      // 3) Prepare state data (progressive)
+      const stateValues = {
+        "California":250, "Texas":230, "New York":185, "Florida":170, "Illinois":165, "Ohio":90, "Michigan":80, 
+        "Georgia":80, "North Carolina":50, "Pennsylvania":135, "Tennessee":25
+      };
+      const dataStates = states.map(d => ({
+        geometry: d,
+        value: stateValues[d.properties.name] !== undefined ? stateValues[d.properties.name] : 10,
+        name: d.properties.name
+      }));
+
+      // 4) Spec combinato
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 800,
+        height: 500,
+        projection: { type: 'albersUsa' },
+
+        // -- Provega extension (NEW grammar) --
+        provega: {
+          progression: {
+            // from data.chunking
+            chunking: {
+              type: 'data',
+              reading: {
+                method: 'sequential',
+                ascending: true,
+                chunk_size: 1,
+                frequency: 300
+              }
+            },
+
+            // from progressive.execution
+            control: {
+              mode: 'exploration',
+              pause: true,
+              stop: true,
+              backward: true,
+              min_frequency: 300,
+              min_rendering_frequency: null
+            },
+
+            // da process + change + quality + visual_representation.noise_reduction
+            monitoring: {
+              aliveness: true,
+              etc: 'eta_ms',
+              progressbar: true,
+              change: {
+                mark: {
+                  active: true,
+                  blink: true,
+                  blinkInterval: 200,
+                  blinkDuration: 800,
+                  style: { color: '#d62728' }
+                },
+                noise_reduction: false
+              },
+              quality: {
+                absolute_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                },
+                relative_progress: {
+                  on_data_input: true,
+                  on_result_output: true,
+                  on_visual_output: true
+                }
+              }
+            }
+          },
+
+          // da progressive.visual_representation (non implementiamo similarity_anchors)
+          visualization: {
+            visual_stability: false,
+            similarity_anchors: false
+          }
+        },
+
+        // ── Data ora solo raw values ──
+        data: {
+          format: { type: 'json' },
+          values: dataStates
+        },
+
+        layer: [
+          // 1) Stati (progressivi)
+          {
+            mark: { type: 'geoshape', stroke: 'white', strokeWidth: 0.8 },
+            encoding: {
+              shape: { field: 'geometry', type: 'geojson' },
+              color: {
+                field: 'value', type: 'quantitative',
+                scale: {
+                  domain: [0, 127.5, 255],
+                  range: ['#C8D7F8', '#738AB5', '#001331']
+                },
+                legend: { title: 'Value' }
+              },
+              tooltip: [
+                { field: 'name', type: 'nominal', title: 'State' },
+                { field: 'value', type: 'quantitative', title: 'Value' }
+              ]
+            }
+          },
+          // 2) Contee (sempre on top, contorno grigio)
+          {
+            data: { values: dataCounties, format: { type: 'json' } },
+            mark: { type: 'geoshape', fill: 'none', stroke: '#ffffff', strokeWidth: 0.3 },
+            encoding: {
+              shape: { field: 'geometry', type: 'geojson' }
+            }
+          }
+        ],
+
+        config: {
+          background: '#f5f5f5',
+          view: { stroke: 'transparent' },
+          axis: { labelFont: 'Arial', labelFontSize: 12 }
+        }
+      };
+
+
+      await vegaEmbed('#vis', spec, { tooltip: { theme: 'dark' } });
+    })();
+  </script>
+</body>
+</html>

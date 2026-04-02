@@ -1,0 +1,36 @@
+{
+  "name": "root",
+  "count": 100,
+  "children": [
+    {
+      "name": "alphabloc",
+      "count": 50,
+      "duration_histogram": { "bins": [10, 20, 20], "range": [7, 90] },
+      "age_histogram": { "bins": [10, 40, 0], "range": [50, 80] },
+      "disease_barchart": [ { "name": "BPH", "value": 30 }, { "name": "Hypertension", "value": 20 } ],
+      "children": [
+        {
+          "name": "alphabloc phyto",
+          "count": 15,
+          "duration_histogram": { "bins": [5, 5, 0], "range": [7, 60] },
+          "age_histogram": { "bins": [10, 0, 0], "range": [50, 75] },
+          "disease_barchart": [ { "name": "BPH", "value": 10 } ]
+        }
+      ]
+    },
+    {
+      "name": "phyto",
+      "count": 30,
+      "duration_histogram": { "bins": [5, 10, 15], "range": [7, 120] },
+      "age_histogram": { "bins": [5, 10, 5], "range": [45, 85] },
+      "disease_barchart": [ { "name": "BPH", "value": 20 } ]
+    },
+    {
+      "name": "fivealpha",
+      "count": 20,
+      "duration_histogram": { "bins": [5, 5], "range": [7, 200] },
+      "age_histogram": { "bins": [10, 5], "range": [50, 80] },
+      "disease_barchart": [ { "name": "BPH", "value": 20 } ]
+    }
+  ]
+}

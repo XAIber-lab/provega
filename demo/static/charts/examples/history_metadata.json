@@ -1,0 +1,7 @@
+{
+  "title": "Stacked Bar Chart",
+  "description": "A progressive bar chart showing the distribution of various topics across different time periods. The animation reveals how certain themes gain or lose prominence over time.",
+  "chart_type": "history_bar_chart",
+  "keywords": ["progressive", "bar chart", "history", "temporal", "distribution", "trend", "categories", "animated"],
+  "doi": "(URL) https://idl.iscram.org/files/michaelaupetit/2017/2055_MichaelAupetit+MuhammadImran2017.pdf"
+}
