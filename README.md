@@ -2,8 +2,8 @@
 
 ProVega is an enhanced version of Vega-Embed, a library for publishing Vega visualizations as embedded web components. This fork adds progressive visualization capabilities, enabling incremental data loading, progress bars, and interactive controls for better user experience with large datasets.
 
-Demonstrative video: [Video](https://github.com/user-attachments/assets/314ce19d-fce2-410c-89c3-027348b216a7)
-Grammar documentation: [Documentation](https://XAIber-lab.github.io/provega)
+- Demonstrative video: [Video](https://github.com/user-attachments/assets/314ce19d-fce2-410c-89c3-027348b216a7)
+- Grammar documentation: [Documentation](https://XAIber-lab.github.io/provega)
 
 
 ## The Pro-Ex Environment
