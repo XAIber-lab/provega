@@ -1,0 +1,278 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Progressive taxi pickups on a NYC basemap, streamed from ProgressiVis over Socket.IO.",
+  "background": "#ffffff",
+  "autosize": {
+    "type": "fit-x",
+    "contains": "padding"
+  },
+  "data": {
+    "name": "pickups",
+    "url": "ws://localhost:8765",
+    "format": {
+      "type": "json"
+    }
+  },
+  "params": [
+    {
+      "name": "filterByHour",
+      "value": false,
+      "bind": {
+        "input": "checkbox",
+        "name": "Focus hour "
+      }
+    },
+    {
+      "name": "hourParam",
+      "value": 18,
+      "bind": {
+        "input": "range",
+        "min": 0,
+        "max": 23,
+        "step": 1
+      }
+    }
+  ],
+  "vconcat": [
+    {
+      "height": 520,
+      "width": 960,
+      "layer": [
+        {
+          "data": {
+            "url": "data/nyc-boroughs.geojson",
+            "format": {
+              "type": "json",
+              "property": "features"
+            }
+          },
+          "mark": {
+            "type": "geoshape",
+            "fill": "#e5edf9",
+            "stroke": "#cbd5e1",
+            "strokeWidth": 1.2,
+            "tooltip": null
+          },
+          "projection": {
+            "type": "mercator",
+            "center": [
+              -73.98,
+              40.73
+            ],
+            "scale": 85000,
+            "translate": [
+              480,
+              330
+            ]
+          }
+        },
+        {
+          "data": {
+            "name": "pickups"
+          },
+          "transform": [
+            {
+              "filter": "isFinite(datum.lat) && isFinite(datum.lon)"
+            },
+            {
+              "filter": "datum.lat >= 40.55 && datum.lat <= 40.92 && datum.lon >= -74.06 && datum.lon <= -73.72"
+            },
+            {
+              "filter": "!filterByHour || datum.hour === hourParam"
+            },
+            {
+              "window": [
+                {
+                  "op": "row_number",
+                  "as": "row"
+                }
+              ],
+              "sort": [
+                {
+                  "field": "pickup_ts",
+                  "order": "descending"
+                }
+              ]
+            },
+            {
+              "filter": "datum.row <= 2500"
+            },
+            {
+              "calculate": "substring(datum.pickup_ts,11,16) + ' UTC'",
+              "as": "clock"
+            }
+          ],
+          "mark": {
+            "type": "circle",
+            "size": 26,
+            "color": "#0f4c81",
+            "opacity": 0.5,
+            "clip": true
+          },
+          "encoding": {
+            "longitude": {
+              "field": "lon",
+              "type": "quantitative"
+            },
+            "latitude": {
+              "field": "lat",
+              "type": "quantitative"
+            },
+            "tooltip": [
+              {
+                "field": "pickup_ts",
+                "title": "Pickup time"
+              },
+              {
+                "field": "weekday",
+                "title": "Weekday"
+              },
+              {
+                "field": "hour",
+                "title": "Hour"
+              },
+              {
+                "field": "lat",
+                "title": "Latitude",
+                "format": ".4f"
+              },
+              {
+                "field": "lon",
+                "title": "Longitude",
+                "format": ".4f"
+              }
+            ]
+          },
+          "projection": {
+            "type": "mercator",
+            "center": [
+              -73.98,
+              40.73
+            ],
+            "scale": 85000,
+            "translate": [
+              480,
+              330
+            ]
+          }
+        }
+      ],
+      "resolve": {
+        "scale": {
+          "color": "independent"
+        }
+      }
+    },
+    {
+      "height": 140,
+      "width": 960,
+      "data": {
+        "name": "pickups"
+      },
+      "transform": [
+        {
+          "filter": "!filterByHour || datum.hour === hourParam"
+        },
+        {
+          "aggregate": [
+            {
+              "op": "count",
+              "as": "count"
+            }
+          ],
+          "groupby": [
+            "hour"
+          ]
+        }
+      ],
+      "mark": {
+        "type": "bar",
+        "cornerRadiusEnd": 2
+      },
+      "encoding": {
+        "x": {
+          "field": "hour",
+          "type": "ordinal",
+          "title": "Hour of day",
+          "sort": "ascending"
+        },
+        "y": {
+          "field": "count",
+          "type": "quantitative",
+          "title": "Pickups (accumulate while streaming)"
+        },
+        "color": {
+          "field": "hour",
+          "type": "quantitative",
+          "scale": {
+            "scheme": "turbo"
+          },
+          "legend": null
+        },
+        "tooltip": [
+          {
+            "field": "hour",
+            "title": "Hour"
+          },
+          {
+            "field": "count",
+            "title": "Pickups"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": null
+    },
+    "axis": {
+      "labelColor": "#334155",
+      "titleColor": "#0f172a",
+      "gridColor": "#e2e8f0"
+    },
+    "legend": {
+      "labelColor": "#0f172a",
+      "titleColor": "#0f172a"
+    }
+  },
+  "provega": {
+    "progression": {
+      "chunking": {
+        "type": "data",
+        "reading": {
+          "method": "sequential",
+          "ascending": true,
+          "chunk_size": 800,
+          "frequency": 350
+        },
+        "total_chunks": 25
+      },
+      "control": {
+        "mode": "exploration",
+        "pause": true,
+        "stop": true,
+        "backward": true,
+        "min_frequency": 300,
+        "min_rendering_frequency": null
+      },
+      "monitoring": {
+        "aliveness": true,
+        "etc": "eta_ms",
+        "progressbar": true,
+        "quality": {
+          "absolute_progress": {
+            "on_data_input": true,
+            "on_result_output": true,
+            "on_visual_output": true
+          },
+          "relative_progress": {
+            "on_data_input": true,
+            "on_result_output": true,
+            "on_visual_output": true
+          }
+        }
+      }
+    }
+  }
+}

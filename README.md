@@ -24,6 +24,17 @@ The 11 reimplemented exemplars from the PDAV literature in progressive-tests can
 You can try the ProgressiVis example in the progressivis-test folder.
 The generative-ai folder contains the experiment mentioned in the paper with Codex 5.2.
 
+### Use Cases Specifications
+
+You can find the JSON specifications for the four use cases (Data Chunking, Process Chunking, Mixed Chunking, External Backend) in progressive-tests/use-cases-specs
+
+If you want to inspect working examples, you can inspect, in progressive-tests:
+
+density-map.html (Data Chunking)
+tsne_1000.html (Process Chunking)
+tsne_mixed.html (Mixed Chunking)
+The progressivis-test folder (External Backend)
+
 
 ---
 
