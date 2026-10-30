@@ -1,0 +1,66 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "width": 800,
+  "height": 500,
+  "projection": { "type": "albersUsa" },
+  "provega": {
+    "progression": {
+      "chunking": {
+        "type": "data",
+        "reading": {
+          "method": "sequential",
+          "ascending": true,
+          "chunk_size": 2000,
+          "frequency": 200
+        }
+      },
+      "control": {
+        "mode": "exploration",
+        "pause": true,
+        "stop": true,
+        "backward": true,
+        "min_frequency": 500,
+        "min_rendering_frequency": null
+      },
+      "monitoring": {
+        "aliveness": true,
+        "etc": "eta_ms",
+        "progressbar": true,
+        "change": { "mark": { "active": false, "blink": false }, "noise_reduction": false },
+        "quality": {
+          "absolute_progress": { "on_data_input": true, "on_result_output": true, "on_visual_output": true },
+          "relative_progress": { "on_data_input": true, "on_result_output": true, "on_visual_output": true },
+          "relative_stability": { "on_data_input": false, "on_result_output": false, "on_visual_output": false },
+          "absolute_certainty": { "on_result_output": false }
+        }
+      }
+    },
+    "visualization": { "visual_stability": false, "similarity_anchors": false }
+  },
+  "data": {
+    "url": "data/fars_2001-2009/fars_all_accidents.csv",
+    "format": { "type": "csv" }
+  },
+  "transform": [
+    { "calculate": "datum.latitude", "as": "lat" },
+    { "calculate": "datum.longitude", "as": "lon" }
+  ],
+  "layer": [
+    {
+      "data": { "values": "states" },
+      "mark": { "type": "geoshape", "fill": "#f0f0f0", "stroke": "#fff", "strokeWidth": 0.5 }
+    },
+    {
+      "mark": { "type": "circle", "size": 2, "color": "green", "opacity": 0.6 },
+      "encoding": {
+        "longitude": { "field": "lon", "type": "quantitative" },
+        "latitude": { "field": "lat", "type": "quantitative" }
+      }
+    }
+  ],
+  "config": {
+    "background": "#ffffff",
+    "view": { "stroke": "transparent" },
+    "axis": { "labelFont": "Arial", "labelFontSize": 12 }
+  }
+}

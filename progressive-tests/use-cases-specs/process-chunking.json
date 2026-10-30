@@ -1,0 +1,73 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "width": 1000,
+  "height": 600,
+  "padding": 50,
+  "data": {
+    "name": "source_0",
+    "values": []
+  },
+  "provega": {
+    "progression": {
+      "chunking": {
+        "type": "process",
+        "reading": {
+          "method": "sequential",
+          "chunk_size": "dataArr.length",
+          "frequency": 100
+        }
+      },
+      "control": {
+        "mode": "monitoring",
+        "pause": false,
+        "stop": false
+      }
+    },
+    "visualization": {
+      "visual_stability": true
+    }
+  },
+  "mark": {
+    "type": "circle",
+    "clip": "true"
+  },
+  "encoding": {
+    "x": {
+      "field": "x",
+      "type": "quantitative",
+      "scale": {
+        "domain": [
+          -22,
+          22
+        ]
+      }
+    },
+    "y": {
+      "field": "y",
+      "type": "quantitative",
+      "scale": {
+        "domain": [
+          -22,
+          22
+        ]
+      }
+    },
+    "color": {
+      "field": "label",
+      "type": "nominal",
+      "scale": {
+        "scheme": "category10"
+      }
+    },
+    "tooltip": [
+      {
+        "field": "id",
+        "title": "ID"
+      },
+      {
+        "field": "label",
+        "title": "Class"
+      }
+    ]
+  }
+}

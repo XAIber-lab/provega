@@ -1,0 +1,117 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "width": 1000,
+  "height": 600,
+  "data": {
+    "name": "source_0",
+    "values": [],
+    "format": {
+      "type": "json"
+    }
+  },
+  "provega": {
+    "progression": {
+      "chunking": {
+        "type": "mixed",
+        "reading": {
+          "method": "sequential",
+          "ascending": true,
+          "chunk_size": 10,
+          "frequency": 250
+        }
+      },
+      "control": {
+        "mode": "exploration",
+        "pause": true,
+        "stop": true,
+        "backward": true,
+        "min_frequency": 300,
+        "min_rendering_frequency": null
+      },
+      "monitoring": {
+        "aliveness": true,
+        "etc": "eta_ms",
+        "progressbar": true,
+        "change": {
+          "mark": {
+            "active": false,
+            "blink": false,
+            "style": {
+              "color": "#f00"
+            }
+          }
+        },
+        "quality": {
+          "absolute_progress": {
+            "on_data_input": "abs_in",
+            "on_result_output": "abs_out",
+            "on_visual_output": "abs_vis"
+          },
+          "relative_progress": {
+            "on_data_input": "rel_in",
+            "on_result_output": "rel_out",
+            "on_visual_output": "rel_vis"
+          },
+          "relative_stability": {
+            "on_data_input": "stab_in",
+            "on_result_output": "stab_out",
+            "on_visual_output": "stab_vis"
+          },
+          "absolute_certainty": {
+            "on_result_output": "cert_out"
+          }
+        }
+      }
+    },
+    "visualization": {
+      "visual_stability": true
+    }
+  },
+  "mark": {
+    "type": "circle",
+    "clip": true,
+    "opacity": 0.9
+  },
+  "encoding": {
+    "x": {
+      "field": "x",
+      "type": "quantitative",
+      "scale": {
+        "domain": [
+          -25,
+          25
+        ]
+      }
+    },
+    "y": {
+      "field": "y",
+      "type": "quantitative",
+      "scale": {
+        "domain": [
+          -25,
+          25
+        ]
+      }
+    },
+    "color": {
+      "field": "label",
+      "type": "nominal",
+      "scale": {
+        "scheme": "category10"
+      }
+    },
+    "tooltip": [
+      {
+        "field": "id",
+        "title": "ID"
+      },
+      {
+        "field": "label",
+        "title": "Class"
+      }
+    ],
+    "size": {
+      "value": 40
+    }
+  }
+}

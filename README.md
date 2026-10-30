@@ -2,7 +2,7 @@
 
 ProVega is an enhanced version of Vega-Embed, a library for publishing Vega visualizations as embedded web components. This fork adds progressive visualization capabilities, enabling incremental data loading, progress bars, and interactive controls for better user experience with large datasets.
 
-- Demonstrative video: [Video](https://github.com/user-attachments/assets/314ce19d-fce2-410c-89c3-027348b216a7)
+- Demonstrative video: [Video](./demo-provega-editor.mp4)
 - Grammar documentation: [Documentation](https://XAIber-lab.github.io/provega)
 
 
@@ -23,6 +23,17 @@ You can find all the progressive visualizations created with ProVega in the prog
 The 11 reimplemented exemplars from the PDAV literature in progressive-tests can be found in this folder, together with the process and mixed chunking examples.
 You can try the ProgressiVis example in the progressivis-test folder.
 The generative-ai folder contains the experiment mentioned in the paper with Codex 5.2.
+
+### Use Cases Specifications
+
+You can find the JSON specifications for the four use cases (Data Chunking, Process Chunking, Mixed Chunking, External Backend) in progressive-tests/use-cases-specs
+
+If you want to inspect working examples, you can inspect, in progressive-tests:
+
+density-map.html (Data Chunking)
+tsne_1000.html (Process Chunking)
+tsne_mixed.html (Mixed Chunking)
+The progressivis-test folder (External Backend)
 
 
 ---
