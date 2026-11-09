@@ -4,6 +4,7 @@ ProVega is an enhanced version of Vega-Embed, a library for publishing Vega visu
 
 - Demonstrative video: [Video](./demo-provega-editor.mp4)
 - Grammar documentation: [Documentation](https://XAIber-lab.github.io/provega)
+- Try it online: [Pro-Ex](https://xaiberlab.provega.unilink.it/), the public instance with the gallery, the inspector and the editor
 
 
 ## The Pro-Ex Environment
